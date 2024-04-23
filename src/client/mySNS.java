@@ -1,12 +1,16 @@
 package client;
 import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
@@ -56,8 +60,9 @@ public class mySNS {
      * @throws NoSuchAlgorithmException 
      * @throws KeyStoreException 
      * @throws InvalidKeyException 
+     * @throws InterruptedException 
      */
-    public static void main(String[] args) throws InvalidKeyException, KeyStoreException, NoSuchAlgorithmException, CertificateException, SignatureException{
+    public static void main(String[] args) throws InvalidKeyException, KeyStoreException, NoSuchAlgorithmException, CertificateException, SignatureException, InterruptedException{
         if (args.length < 6 || !args[0].equals("-a") ) {
             System.out.println("Uso: java mySNS -a <serverAddress> -m <doctorUsername> -u <userUsername> [-sc <filenames>] [-sa <filenames>] [-se <filenames>] [-g <filenames>]\nou\nUsage: java mySNS -a <serverAddress> -u <username do utente> -g {<filenames>}+");
             return;
@@ -89,11 +94,51 @@ public class mySNS {
             List<String> ficheirosRecebidos = new ArrayList<>();
             String doctor;
             
-            if (args.length >= 6 && args[4].equals("-g")) {
+            if (args.length == 6 && args[2].equals("-au")){
+            	
             	ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
+            	ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
+            	
+                outStream.writeObject(userUsername);
+                String ComandocriaCerti = "keytool -export -keystore keystore."+ userUsername + " -alias " + userUsername + " -file " + userUsername+".cer";
+                String senhaKeystore = "123456";
+                
+
+                try {
+                	
+                	Process processo2 = Runtime.getRuntime().exec(ComandocriaCerti);
+                    // processo2.waitFor(); // Aguarda o término do segundo comando
+
+                    if (senhaKeystore != null && !senhaKeystore.isEmpty()) {
+                        PrintWriter escritor = new PrintWriter(processo2.getOutputStream());
+                        escritor.println(senhaKeystore);
+                        escritor.flush();
+                    }
+
+                    // Espera o término do processo e captura o código de retorno
+                    int codigoRetorno = processo2.waitFor();
+
+                    // Imprime o código de retorno
+                    System.out.println("Código de retorno: " + codigoRetorno);
+
+                    System.out.println("Certificado criado com sucesso");
+                        
+                    
+	                } catch (IOException | InterruptedException e) {
+	                    e.printStackTrace();
+	                }
+                    
+	                String nameCertificado = userUsername+".cer";
+	                sendCertToServer(nameCertificado);
+
+            
+        	}else if (args.length >= 6 && args[4].equals("-g")) {
+        		
+        		ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
             	ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
             	outStream.writeObject(userUsername);
             	outStream.writeObject(true);
+            	
             	// Determine the count of files to be sent
                 int fileCount = 0;
 
@@ -626,6 +671,55 @@ public class mySNS {
         }
     }
 
+    
+    private static void sendCertToServer(String filename) {
+        try {
+        	
+            ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
+            ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
+            
+            
+        	outStream.writeObject(false);
+        	outStream.writeObject("-au");
+     
+            
+             
+            File Cert = new File(filename);
+            Long fileSize = Cert.length();
+            
+            outStream.writeObject(fileSize); 
+            outStream.writeObject(filename); 
+            
+            try (BufferedInputStream CertB = new BufferedInputStream(new FileInputStream(Cert))) {
+                byte[] buffer = new byte[1024];
+                int bytesRead;
+                while ((bytesRead = CertB.read(buffer, 0, 1024)) > 0) {
+                    outStream.write(buffer, 0, bytesRead);
+                }
+            }
+            
+            outStream.writeObject("-1"); 
+            outStream.flush(); 
+
+            
+            Boolean acknowledgment = (Boolean) inStream.readObject();
+            //System.out.println("Server acknowledgment: " + acknowledgment);
+
+            
+            inStream.close();
+            outStream.close();
+
+            
+            socket.close();
+            System.out.println("Conexao fechada.");
+
+            } catch (IOException | ClassNotFoundException e) {
+            System.err.println("Erro ao enviar ficheiros para o servidor: " + e.getMessage());
+        }
+    }
+    
+  
+    
     private static void sendFilesToServer(String[] filenames, String userUsername) {
         try {
             ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());

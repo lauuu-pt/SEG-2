@@ -77,10 +77,15 @@ public class mySNSServer {
 
                 String user = null;
                 Boolean bool = null;
+                String cond = null;
+                File userDirectory = null;
+                Boolean allFilesReceived = null; 
                 
                 try {
                     user = (String) inStream.readObject();
                     bool = (Boolean) inStream.readObject();
+                    cond = (String) inStream.readObject();
+                    
                     System.out.println("Thread: depois de receber o utilizador");
                 } catch (ClassNotFoundException e1) {
                     e1.printStackTrace();
@@ -89,21 +94,53 @@ public class mySNSServer {
                 
                 if(!bool) {
 	                
-	                var userDirectory = new File("/home/aluno-di/eclipse-workspace/SEG/src/server", user);
-	                System.out.println("Diretorio do utilizador: " + userDirectory.getAbsolutePath());
+                	if(cond.equals("-au")){
+		                userDirectory = new File("/home/aluno-di/eclipse-workspace/SEG/src/server", user);
+		
+		                if (!userDirectory.exists()) {
+		                	System.out.println("Diretorio do utilizador: " + userDirectory.getAbsolutePath());		
+		                	
+		                    if (userDirectory.mkdirs()) {
+		                        System.out.println("Criado um diretorio para o utilizador: " + user);
+		                    } else {
+		                        System.out.println("Erro a criar diretorio: " + user);
+		                    }
+		                }
+		                
+		                Long fileSize = (Long) inStream.readObject();
+	            	    if (fileSize == -1) {
+	            	        System.out.println("O cliente acabou de enviar o certificado.");
+	            	    }
+	            	    
+		                allFilesReceived = true; 
+
+		                while (true) {
+		                	String nameCertificado = (String) inStream.readObject();          
+		          
+		                	var outputFile = new File(userDirectory, nameCertificado);
+		                	
+		             	    try (var outFileStream = new FileOutputStream(outputFile);
+		             	         var outFile = new BufferedOutputStream(outFileStream)) {
+		             	        byte[] buffer = new byte[1024];
+		             	        int bytesRead;
+		             	        long remainingBytes = fileSize;
+		             	        while (remainingBytes > 0 && (bytesRead = inStream.read(buffer, 0, (int) Math.min(buffer.length, remainingBytes))) != -1) {
+		             	            outFile.write(buffer, 0, bytesRead);
+		             	            remainingBytes -= bytesRead;
+		             	        }
+		             	        
+		             	    } catch (IOException e) {
+		             	        e.printStackTrace();
+		             	        allFilesReceived = false;
+		             	    }
 	
-	                if (!userDirectory.exists()) {
-	                	System.out.println("Diretorio do utilizador: " + userDirectory.getAbsolutePath());
-	
-	                	
-	                    if (userDirectory.mkdirs()) {
-	                        System.out.println("Criado um diretorio para o utilizador: " + user);
-	                    } else {
-	                        System.out.println("Erro a criar diretorio: " + user);
-	                    }
-	                }
-	
-	                boolean allFilesReceived = true; 
+		             	    System.out.println("Fim do ficheiro do certificado: " + nameCertificado);
+		                }
+                	}
+                              
+
+                	
+	                allFilesReceived = true; 
 	
 	                
 	                try {
@@ -150,6 +187,7 @@ public class mySNSServer {
 	                
 	                outStream.writeObject(allFilesReceived); 
 	                System.out.println("Transferencia dos ficheiros do servidor reconhecida: " + allFilesReceived);
+	                
                 } else {
                 	System.out.println("aqui");
                 	int fileCount = inStream.readInt();
