@@ -1,12 +1,18 @@
 package client;
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
@@ -26,6 +32,7 @@ import java.security.cert.CertificateFactory;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -46,6 +53,7 @@ public class mySNS {
 	Maria Rita Gonçalves (58659)*/
 	
     private static Socket socket;
+        
 
     
     /**
@@ -56,9 +64,13 @@ public class mySNS {
      * @throws NoSuchAlgorithmException 
      * @throws KeyStoreException 
      * @throws InvalidKeyException 
+     * @throws InterruptedException 
+     * @throws IOException 
      */
-    public static void main(String[] args) throws InvalidKeyException, KeyStoreException, NoSuchAlgorithmException, CertificateException, SignatureException{
-        if (args.length < 6 || !args[0].equals("-a") ) {
+    public static void main(String[] args) throws InvalidKeyException, KeyStoreException, NoSuchAlgorithmException, CertificateException, SignatureException, InterruptedException, IOException{
+
+    	
+    	if (args.length < 6 || !args[0].equals("-a") ) {
             System.out.println("Uso: java mySNS -a <serverAddress> -m <doctorUsername> -u <userUsername> [-sc <filenames>] [-sa <filenames>] [-se <filenames>] [-g <filenames>]\nou\nUsage: java mySNS -a <serverAddress> -u <username do utente> -g {<filenames>}+");
             return;
         }
@@ -88,12 +100,64 @@ public class mySNS {
             String userUsername = args[3];
             List<String> ficheirosRecebidos = new ArrayList<>();
             String doctor;
+            ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
+        	ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
+           
             
-            if (args.length >= 6 && args[4].equals("-g")) {
-            	ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
-            	ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
+            if (args.length == 6 && args[2].equals("-au")){
+            	
+            	String password = args[4];
+
+                outStream.writeObject(userUsername);
+                outStream.writeObject(password);
+                outStream.writeObject(false);
+            	outStream.writeObject("-au");
+                
+                String ComandocriaCerti = "keytool -export -keystore keystore."+ userUsername + " -alias " + userUsername + " -file " + userUsername+".cer";
+                //String ComandoKeystore = "keytool -genkeypair -keysize 2048 -alias "+ userUsername + " -keyalg rsa -keystore keystore." + userUsername + " -storetype PKCS12";
+                String senhaKeystore = "123456";                
+
+                try {
+                	
+                	
+                   	boolean fileExists = (boolean) inStream.readObject();
+                	
+                	if (fileExists){
+	                	Process processo2 = Runtime.getRuntime().exec(ComandocriaCerti);
+	
+	                    if (senhaKeystore != null && !senhaKeystore.isEmpty()) {
+	                    	OutputStreamWriter  escritor = new OutputStreamWriter (processo2.getOutputStream());
+	                        escritor.write(senhaKeystore);
+	                        escritor.flush();
+	                        escritor.close();
+	                    }
+	
+	                    // Espera o término do processo e captura o código de retorno
+	                    int codigoRetorno = processo2.waitFor();
+	
+	                   
+	                    String nameCertificado = userUsername+".cer";
+	                    sendCertToServer(nameCertificado, outStream);
+	                    String[] lista = {nameCertificado};
+	                    deleteFiles(lista, null, null);	
+	                    System.out.println("Username cadastrado com sucesso");
+	                    
+                	}else {                		
+                		System.out.println("Username ja cadastrado");
+                	}
+                        
+	                
+	                } catch (IOException | InterruptedException e) {
+	                    e.printStackTrace();
+	                }
+                
+
+                               
+        	}else if (args.length >= 6 && args[4].equals("-g")) {
+        		
             	outStream.writeObject(userUsername);
             	outStream.writeObject(true);
+            	
             	// Determine the count of files to be sent
                 int fileCount = 0;
 
@@ -102,8 +166,7 @@ public class mySNS {
                     File file = new File(args[i]);
                     
                     fileCount++;
-                                 
-                    
+                                                     
                 }
                 System.out.println("n ficheiros a pedir: "+fileCount);
                 // Send the count of files to the server
@@ -115,8 +178,7 @@ public class mySNS {
                     
                         // Send the filename to the server
                         outStream.writeObject(file.getName());
-                        outStream.flush();
-                    
+                        outStream.flush();                    
                 }                              
                
                     int existingFileCount = (int) inStream.readObject();
@@ -185,7 +247,22 @@ public class mySNS {
                 
                 } 
             
-            }           
+            }else if(args.length >= 9 && args[4].equals("-p")) {
+            	String pass = args[5];
+            	String doctorUsername = args[3];
+                String userUsernamee = args[7];
+                String metodo = args[8];
+                
+                
+                if("!".equals("!")){
+                	System.out.println("");
+                }else {
+                	System.out.println("A password não corresponde com o user");
+                }
+                
+            	
+            }
+            
              else if (args.length >= 8) {
             	 String doctorUsername = args[3];
                  String userUsernamee = args[5];
@@ -254,6 +331,7 @@ public class mySNS {
    	        File signature = new File(filename + ".assinatura." + doctorUsername);
    	        File cifradoAss = new File(filename + ".cifrado.assinado");
    	        File CifAss = new File(filename + ".cifrado.assinatura." + doctorUsername);
+   	        File cert = new File(filename);
 
    	        if (cifradoFile.exists()) {
    	            cifradoFile.delete();
@@ -272,6 +350,9 @@ public class mySNS {
    	        }
    	        if (CifAss.exists()) {
    	        	CifAss.delete(); 
+   	        }
+   	        if(cert.exists()) {
+   	        	cert.delete();
    	        }
    	    }
 	}
@@ -626,14 +707,44 @@ public class mySNS {
         }
     }
 
+    
+    private static void sendCertToServer(String filename, ObjectOutputStream outStream){
+    	        
+    	try {
+    		
+            File Cert = new File(filename);
+            long fileSize = Cert.length();
+            
+            outStream.writeObject(fileSize); 
+            outStream.writeObject(filename); 
+                        
+            try (BufferedInputStream CertB = new BufferedInputStream(new FileInputStream(Cert))) {
+            	byte[] buffer = new byte[1024];
+                int bytesRead;
+            	while ((bytesRead = CertB.read(buffer, 0, 1024)) > 0) {
+                    outStream.write(buffer, 0, bytesRead);
+                }
+            }
+            
+            outStream.writeObject("-1"); 
+            outStream.flush(); 
+            System.out.println("Certificado enviado para o servidor.");
+           
+            System.out.println("Conexao fechada.");
+
+            } catch (IOException e) {
+            System.err.println("Erro ao enviar ficheiros para o servidor: " + e.getMessage());
+            }
+    }
+    
+      
     private static void sendFilesToServer(String[] filenames, String userUsername) {
         try {
             ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
             ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
             
             
-            outStream.writeObject(userUsername);
-            
+            outStream.writeObject(userUsername);            
             outStream.writeObject(false);
      
             for (String filename : filenames) {
@@ -686,18 +797,14 @@ public class mySNS {
     }
     private static void sendFilesToServer2(String[] filenames, String userUsername,String doctorUsername) {
         try {
-            ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
-            ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
             
-            
-            outStream.writeObject(userUsername);
-            
+        	
+        	ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
+        	ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
+        	
+            outStream.writeObject(userUsername);           
             outStream.writeObject(false);
-           
-            
-            
-            
-     
+
             for (String filename : filenames) {
              
             	File assinadoFile = new File(filename+".assinado");

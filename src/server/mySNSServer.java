@@ -1,18 +1,28 @@
 package server;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.BufferedWriter;
 import java.io.EOFException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
+import java.util.Scanner;
+
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
 
 public class mySNSServer {
 	/*Membros do grupo:
@@ -23,11 +33,44 @@ public class mySNSServer {
 	/**
      * Método principal para iniciar o servidor mySNS.
      * @param args Argumentos da linha de comando.
+	 * @throws IOException 
+	 * @throws InvalidKeySpecException 
+	 * @throws NoSuchAlgorithmException 
      */
-    public static void main(String[] args) {
-        System.out.println("Servidor aberto");
+    public static void main(String[] args) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
         var server = new mySNSServer();
-        server.startServer();
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("Passe do admin para iniciar o servidor: ");
+        String input = scanner.nextLine();
+        
+        if(input.equals("123456")) {
+        	System.out.println("passe correta");
+            File passwordFile = new File("/home/aluno-di/eclipse-workspace/SEG-2/src/server", "users.txt");
+            
+            if(passwordFile.createNewFile()) { 
+            		Scanner scanner2 = new Scanner(System.in);
+                    System.out.println("ficheiro de users não exite, digite a passe do admin para cria-lo: ");
+                    String input2 = scanner2.nextLine();
+                    if(input2.equals(input)) {
+	                	try (BufferedWriter writer = new BufferedWriter(new FileWriter(passwordFile))) {                    	                
+	            	    	adcUser("admin", input , writer);
+	            	        System.out.println("Arquivo de texto criado com sucesso: users.txt");
+	            	        writer.close();
+	                    	server.startServer();
+                	}
+            	}else {
+            		System.out.println("passe errada, servidor fechado");
+            	    return;
+                }
+            }else {
+            	server.startServer();
+            }            
+            
+        }
+        else {
+        	System.out.println("Passe errada, servidor fechado");
+        	return;
+        }
     }
 
     
@@ -35,12 +78,13 @@ public class mySNSServer {
      * Método para iniciar o servidor.
      */
     public void startServer(){
+    	System.out.println("\nServidor aberto");
         try (var sSoc = new ServerSocket(23456)) {
             while (true) {
                 try {
                     var inSoc = sSoc.accept();
-                    var newServerThread = new ServerThread(inSoc);
-                    newServerThread.start();
+                    var newServerThread = new ServerThread(inSoc);                 
+                    	newServerThread.start();
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -64,7 +108,7 @@ public class mySNSServer {
          */
         ServerThread(Socket inSoc) {
             socket = inSoc;
-            System.out.println("Thread do servidor para cada cliente");
+            System.out.println("Thread do servidor para cada cliente\n");
         }
 
         
@@ -72,85 +116,128 @@ public class mySNSServer {
          * Método que executa a thread do servidor.
          */
         public void run() {
+        	
             try (var outStream = new ObjectOutputStream(socket.getOutputStream());
                  var inStream = new ObjectInputStream(socket.getInputStream())) {
 
                 String user = null;
                 Boolean bool = null;
+                String cond = null;
+                String pass = null;
                 
-                try {
+                File userDirectory = null;
+                Boolean allFilesReceived = null; 
+                
+                File passwordFile = new File("/home/aluno-di/eclipse-workspace/SEG-2/src/server", "users.txt");
+
+                try{
+
                     user = (String) inStream.readObject();
+                    pass = (String) inStream.readObject();
                     bool = (Boolean) inStream.readObject();
-                    System.out.println("Thread: depois de receber o utilizador");
-                } catch (ClassNotFoundException e1) {
-                    e1.printStackTrace();
-                }
-                //outStream.writeObject(true); 
-                
-                if(!bool) {
-	                
-	                var userDirectory = new File("/home/aluno-di/eclipse-workspace/SEG/src/server", user);
-	                System.out.println("Diretorio do utilizador: " + userDirectory.getAbsolutePath());
-	
-	                if (!userDirectory.exists()) {
-	                	System.out.println("Diretorio do utilizador: " + userDirectory.getAbsolutePath());
-	
-	                	
-	                    if (userDirectory.mkdirs()) {
-	                        System.out.println("Criado um diretorio para o utilizador: " + user);
-	                    } else {
-	                        System.out.println("Erro a criar diretorio: " + user);
-	                    }
-	                }
-	
-	                boolean allFilesReceived = true; 
-	
-	                
-	                try {
-	                	
-	                	while (true) {
-	                	    Long fileSize = (Long) inStream.readObject();
-	                	    if (fileSize == -1) {
-	                	        System.out.println("O cliente acabou de enviar os ficheiros.");
-	                	        break;
-	                	    }
-	                	    
-	                	    String filename = (String) inStream.readObject();
-	                	    
-	                	
-	                	    
-	                	    var outputFile = new File(userDirectory, filename);
-	                	    try (var outFileStream = new FileOutputStream(outputFile);
-	                	         var outFile = new BufferedOutputStream(outFileStream)) {
-	                	        byte[] buffer = new byte[1024];
-	                	        int bytesRead;
-	                	        long remainingBytes = fileSize;
-	                	        while (remainingBytes > 0 && (bytesRead = inStream.read(buffer, 0, (int) Math.min(buffer.length, remainingBytes))) != -1) {
-	                	            outFile.write(buffer, 0, bytesRead);
-	                	            remainingBytes -= bytesRead;
-	                	        }
-	                	    } catch (IOException e) {
-	                	        e.printStackTrace();
-	                	        allFilesReceived = false;
-	                	    }
-	
-	                	    System.out.println("Fim do ficheiro: " + filename);
-	                	}
-	
-	
-	                } catch (EOFException e) {
-	                
-	                    System.err.println("Cliente desconectou do servidor.");
-	                    allFilesReceived = false; 
+                    cond = (String) inStream.readObject();        
+                    Boolean var = null;
+                    
+                    System.out.println("Thread: depois de receber o utilizador\n");
+  
 	                } catch (ClassNotFoundException e1) {
 	                    e1.printStackTrace();
-	                    allFilesReceived = false; 
-	                }
+					}
+                                
+                if(!bool) {
+
+                	if(cond.equals("-au")){
+		                userDirectory = new File("/home/aluno-di/eclipse-workspace/SEG-2/src/server", user);
+		                if (!userDirectory.exists()) {
+		                    if (userDirectory.mkdirs()) {
+		                    	outStream.writeObject(true);
+		                        System.out.println("Criado um diretorio para o utilizador: " + user);		                    			                        
+			                    Long fileSize = (Long) inStream.readObject();
+				                
+			            	    if (fileSize == -1) {
+			            	        System.out.println("O cliente acabou de enviar o certificado.");
+			            	    }
+			            	    
+			                    System.out.println("Recebendo certificado...");
+	
+		                        
+			                	String nameCertificado = (String) inStream.readObject(); 
+			                	File certDirectory = new File("/home/aluno-di/eclipse-workspace/SEG-2/src/server/certificados");
+			                	var outputFile = new File(certDirectory, nameCertificado);
+			                	
+			             	    try (var outFileStream = new FileOutputStream(outputFile);
+			             	         var outFile = new BufferedOutputStream(outFileStream)) {
+			             	        byte[] buffer = new byte[1024];
+			             	        int bytesRead;
+			             	        long remainingBytes = fileSize;
+			             	        while (remainingBytes > 0 && (bytesRead = inStream.read(buffer, 0, (int) Math.min(buffer.length, remainingBytes))) != -1) {
+			             	            outFile.write(buffer, 0, bytesRead);
+			             	            remainingBytes -= bytesRead;
+			             	        }
+			             	        
+			             	       System.out.println("Crtificado: " + nameCertificado+ " recebido");
+			             	        
+			             	    } catch (IOException e) {
+			             	        e.printStackTrace();
+			             	        allFilesReceived = false;
+			             	    }
+	                    	}
+		                }
+		                else {
+		                	System.out.println("Utilizador: " + user+ " ja existe");
+		                	outStream.writeObject(false);
+		                	return;
+		                }
+
+            		}else {
+		                try {
+		                	
+		                	while (true) {
+		                	    Long fileSize = (Long) inStream.readObject();
+		                	    if (fileSize == -1) {
+		                	        System.out.println("O cliente acabou de enviar os ficheiros.");
+		                	        break;
+		                	    }
+		                	    
+		                	    String filename = (String) inStream.readObject();
+		                	    
+				                allFilesReceived = true;
+
+		                	    
+		                	    var outputFile = new File(userDirectory, filename);
+		                	    try (var outFileStream = new FileOutputStream(outputFile);
+		                	         var outFile = new BufferedOutputStream(outFileStream)) {
+		                	        byte[] buffer = new byte[1024];
+		                	        int bytesRead;
+		                	        long remainingBytes = fileSize;
+		                	        while (remainingBytes > 0 && (bytesRead = inStream.read(buffer, 0, (int) Math.min(buffer.length, remainingBytes))) != -1) {
+		                	            outFile.write(buffer, 0, bytesRead);
+		                	            remainingBytes -= bytesRead;
+		                	        }
+		                	    } catch (IOException e) {
+		                	        e.printStackTrace();
+		                	        allFilesReceived = false;
+		                	    }
+		
+		                	    System.out.println("Fim do ficheiro: " + filename);
+		                	}
+	
+	
+		                } catch (EOFException e) {
+		                
+		                    System.err.println("Cliente desconectou do servidor.");
+		                    allFilesReceived = false; 
+		                } catch (ClassNotFoundException e1) {
+		                    e1.printStackTrace();
+		                    allFilesReceived = false; 
+		                }
 	
 	                
-	                outStream.writeObject(allFilesReceived); 
-	                System.out.println("Transferencia dos ficheiros do servidor reconhecida: " + allFilesReceived);
-                } else {
+		                outStream.writeObject(allFilesReceived); 
+		                System.out.println("Transferencia dos ficheiros do servidor reconhecida: " + allFilesReceived);
+	                }
+	                
+                }else {
                 	System.out.println("aqui");
                 	int fileCount = inStream.readInt();
                     System.out.println("Client will send " + fileCount + " files.");
@@ -221,5 +308,40 @@ public class mySNSServer {
 	            }
             
         
+        }
     }
-    }}
+
+ // Método para adicionar um novo usuário ao arquivo de senhas
+    private static void adcUser(String username, String password, BufferedWriter writer) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
+        // Gera um salt aleatório
+        byte[] salt = generateSalt();
+
+        // Gera a senha hasheada usando PBKDF2 com SHA-256
+        String hashedPassword = hashPassword(password, salt);
+
+        // Escreve as informações do usuário no arquivo de senhas
+        writer.write(username + ";" + Base64.getEncoder().encodeToString(salt) + ";" + hashedPassword);
+        writer.newLine();
+    }
+
+    // Método para gerar um salt aleatório
+    private static byte[] generateSalt() throws NoSuchAlgorithmException {
+        SecureRandom random = SecureRandom.getInstanceStrong();
+        byte[] salt = new byte[16];
+        random.nextBytes(salt);
+        return salt;
+    }
+
+    // Método para hashear a senha usando PBKDF2 com SHA-256
+    private static String hashPassword(String password, byte[] salt) throws NoSuchAlgorithmException, InvalidKeySpecException {
+        int iterations = 10000;
+        int keyLength = 256;
+
+        PBEKeySpec spec = new PBEKeySpec(password.toCharArray(), salt, iterations, keyLength);
+        SecretKeyFactory factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+        byte[] hash = factory.generateSecret(spec).getEncoded();
+
+        return Base64.getEncoder().encodeToString(hash);
+    }
+
+}
