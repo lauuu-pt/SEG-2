@@ -116,7 +116,9 @@ public class mySNS {
                 String comandoKeystore = "keytool -genkeypair -keysize 2048 -alias " + userUsername +
                         " -keyalg rsa -keystore keystore." + userUsername + " -storetype PKCS12";
                 System.out.println(userUsername);
-                String senhaKeystore = password;                
+                String senhaKeystore = password;    
+                System.out.println(senhaKeystore);
+                System.out.println(password);
 
                 try {
                 	
@@ -129,11 +131,12 @@ public class mySNS {
                 		    OutputStreamWriter escritorKeystore = new OutputStreamWriter(processoKeystore.getOutputStream());
                 		    escritorKeystore.write(password + "\n"); // Fornece a senha
                 		    escritorKeystore.write(password + "\n"); // Repete a senha
-                		    escritorKeystore.write("Nome\n"); // Substitua "Nome" pelas outras informações necessárias
-                		    escritorKeystore.write("Organização\n"); // Substitua "Organização" pelas outras informações necessárias
-                		    escritorKeystore.write("Cidade\n"); // Substitua "Cidade" pelas outras informações necessárias
-                		    escritorKeystore.write("Estado\n"); // Substitua "Estado" pelas outras informações necessárias
-                		    escritorKeystore.write("País\n"); // Substitua "País" pelas outras informações necessárias
+                		    escritorKeystore.write("\n"); // Substitua "Nome" pelas outras informações necessárias
+                		    escritorKeystore.write("\n"); // Substitua "Organização" pelas outras informações necessárias
+                		    escritorKeystore.write("\n"); // Substitua "Cidade" pelas outras informações necessárias
+                		    escritorKeystore.write("\n"); // Substitua "Estado" pelas outras informações necessárias
+                		    escritorKeystore.write("\n"); // Substitua "País" pelas outras informações necessárias
+                		    escritorKeystore.write("\n"); 
                 		    escritorKeystore.write("yes\n"); // Confirmação de informações
                 		    escritorKeystore.flush();
                 		    escritorKeystore.close();
