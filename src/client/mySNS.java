@@ -70,7 +70,7 @@ public class mySNS {
     public static void main(String[] args) throws InvalidKeyException, KeyStoreException, NoSuchAlgorithmException, CertificateException, SignatureException, InterruptedException, IOException{
 
     	
-    	if (args.length < 8 || !args[0].equals("-a") ) {
+    	if (args.length < 6 || !args[0].equals("-a") ) {
             System.out.println("Uso: java mySNS -a <serverAddress> -m <doctorUsername> -p <password> -u <userUsername>  [-sc <filenames>] [-sa <filenames>] [-se <filenames>] /nOu\nUsage: java mySNS -a <serverAddress> -u <username do utente> -p <password -g {<filenames>}+");
             return;
         }
@@ -113,8 +113,10 @@ public class mySNS {
             	outStream.writeObject("-au");
                 
                 String ComandocriaCerti = "keytool -export -keystore keystore."+ userUsername + " -alias " + userUsername + " -file " + userUsername+".cer";
-                //String ComandoKeystore = "keytool -genkeypair -keysize 2048 -alias "+ userUsername + " -keyalg rsa -keystore keystore." + userUsername + " -storetype PKCS12";
-                String senhaKeystore = "123456";                
+                String comandoKeystore = "keytool -genkeypair -keysize 2048 -alias " + userUsername +
+                        " -keyalg rsa -keystore keystore." + userUsername + " -storetype PKCS12";
+                System.out.println(userUsername);
+                String senhaKeystore = password;                
 
                 try {
                 	
@@ -122,17 +124,51 @@ public class mySNS {
                    	boolean fileExists = (boolean) inStream.readObject();
                 	
                 	if (fileExists){
-	                	Process processo2 = Runtime.getRuntime().exec(ComandocriaCerti);
-	
-	                    if (senhaKeystore != null && !senhaKeystore.isEmpty()) {
-	                    	OutputStreamWriter  escritor = new OutputStreamWriter (processo2.getOutputStream());
-	                        escritor.write(senhaKeystore);
-	                        escritor.flush();
-	                        escritor.close();
-	                    }
-	
-	                    // Espera o término do processo e captura o código de retorno
-	                    int codigoRetorno = processo2.waitFor();
+                		Process processoKeystore = Runtime.getRuntime().exec(comandoKeystore);
+                		if (password != null && !password.isEmpty()) {
+                		    OutputStreamWriter escritorKeystore = new OutputStreamWriter(processoKeystore.getOutputStream());
+                		    escritorKeystore.write(password + "\n"); // Fornece a senha
+                		    escritorKeystore.write(password + "\n"); // Repete a senha
+                		    escritorKeystore.write("Nome\n"); // Substitua "Nome" pelas outras informações necessárias
+                		    escritorKeystore.write("Organização\n"); // Substitua "Organização" pelas outras informações necessárias
+                		    escritorKeystore.write("Cidade\n"); // Substitua "Cidade" pelas outras informações necessárias
+                		    escritorKeystore.write("Estado\n"); // Substitua "Estado" pelas outras informações necessárias
+                		    escritorKeystore.write("País\n"); // Substitua "País" pelas outras informações necessárias
+                		    escritorKeystore.write("yes\n"); // Confirmação de informações
+                		    escritorKeystore.flush();
+                		    escritorKeystore.close();
+                		    
+                		}
+
+                		// Espera o término do processo do keystore e captura o código de retorno
+                		int codigoRetornoKeystore = processoKeystore.waitFor();
+                		System.out.println(codigoRetornoKeystore);
+                		if (codigoRetornoKeystore == 0) {
+                		    System.out.println("Keystore criado com sucesso.");
+
+                		    Process processoCriaCertificado = Runtime.getRuntime().exec(ComandocriaCerti);
+                		    
+                		    if (senhaKeystore != null && !senhaKeystore.isEmpty()) {
+                		        OutputStreamWriter escritor = new OutputStreamWriter(processoCriaCertificado.getOutputStream());
+                		        escritor.write(senhaKeystore + "\n"); // Fornece a senha do keystore
+                		        escritor.flush();
+                		        escritor.close();
+                		    }
+                		    
+                		    // Espera o término do processo e captura o código de retorno
+                		    int codigoRetorno = processoCriaCertificado.waitFor();
+                		    // Verifica se o certificado foi criado com sucesso
+                		    if (codigoRetorno == 0) {
+                		        System.out.println("Certificado criado com sucesso.");
+                		    } else {
+                		        System.out.println("Erro ao criar certificado.");
+                		    }
+                		} else {
+                		    System.out.println("Erro ao criar keystore.");
+                		}
+
+                		 
+                		 
 		                   
 	                    String nameCertificado = userUsername+".cer";
 	                    sendCertToServer(nameCertificado, outStream);
