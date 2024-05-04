@@ -53,6 +53,8 @@ public class mySNS {
 	Maria Rita Gonçalves (58659)*/
 	
     private static Socket socket;
+    static ObjectInputStream inStream;
+    static ObjectOutputStream outStream;
         
 
     
@@ -71,7 +73,7 @@ public class mySNS {
 
     	
     	if (args.length < 6 || !args[0].equals("-a") ) {
-            System.out.println("Uso: java mySNS -a <serverAddress> -m <doctorUsername> -u <userUsername> [-sc <filenames>] [-sa <filenames>] [-se <filenames>] [-g <filenames>]\nou\nUsage: java mySNS -a <serverAddress> -u <username do utente> -g {<filenames>}+");
+            System.out.println("Uso: java mySNS -a <serverAddress> -m <doctorUsername> -p <password> -u <userUsername>  [-sc <filenames>] [-sa <filenames>] [-se <filenames>] /nOu\nUsage: java mySNS -a <serverAddress> -u <username do utente> -p <password -g {<filenames>}+");
             return;
         }
 
@@ -91,7 +93,6 @@ public class mySNS {
             return;
         }
 
-        
 
         try {
             
@@ -109,37 +110,66 @@ public class mySNS {
             	String password = args[4];
 
                 outStream.writeObject(userUsername);
-                outStream.writeObject(password);
                 outStream.writeObject(false);
+                outStream.writeObject(password);
             	outStream.writeObject("-au");
                 
                 String ComandocriaCerti = "keytool -export -keystore keystore."+ userUsername + " -alias " + userUsername + " -file " + userUsername+".cer";
-                //String ComandoKeystore = "keytool -genkeypair -keysize 2048 -alias "+ userUsername + " -keyalg rsa -keystore keystore." + userUsername + " -storetype PKCS12";
-                String senhaKeystore = "123456";                
+                String comandoKeystore = "keytool -genkeypair -keysize 2048 -alias "+ userUsername + " -keyalg rsa -keystore keystore." + userUsername + " -storetype PKCS12";
+                String senhaKeystore = password;                
 
                 try {
-                	
-                	
+                	                	
                    	boolean fileExists = (boolean) inStream.readObject();
                 	
                 	if (fileExists){
-	                	Process processo2 = Runtime.getRuntime().exec(ComandocriaCerti);
-	
-	                    if (senhaKeystore != null && !senhaKeystore.isEmpty()) {
-	                    	OutputStreamWriter  escritor = new OutputStreamWriter (processo2.getOutputStream());
-	                        escritor.write(senhaKeystore);
-	                        escritor.flush();
-	                        escritor.close();
-	                    }
-	
-	                    // Espera o término do processo e captura o código de retorno
-	                    int codigoRetorno = processo2.waitFor();
-	
-	                   
+	                	Process processoKeystore = Runtime.getRuntime().exec(comandoKeystore);
+                		if (password != null && !password.isEmpty()) {
+                		    OutputStreamWriter escritorKeystore = new OutputStreamWriter(processoKeystore.getOutputStream());
+                		    escritorKeystore.write(password + "\n"); 
+                		    escritorKeystore.write(password + "\n"); 
+                		    escritorKeystore.write("\n"); 
+                		    escritorKeystore.write("\n"); 
+                		    escritorKeystore.write("\n");
+                		    escritorKeystore.write("\n");
+                		    escritorKeystore.write("\n");
+                		    escritorKeystore.write("\n"); 
+                		    escritorKeystore.write("yes\n");
+                		    escritorKeystore.flush();
+                		    escritorKeystore.close();                		    
+                		}
+
+                		int codigoRetornoKeystore = processoKeystore.waitFor();
+                		
+                		if (codigoRetornoKeystore == 0) {
+                		    System.out.println("Keystore criado com sucesso.");
+
+                		    Process processoCriaCertificado = Runtime.getRuntime().exec(ComandocriaCerti);
+                		    
+                		    if (senhaKeystore != null && !senhaKeystore.isEmpty()) {
+                		        OutputStreamWriter escritor = new OutputStreamWriter(processoCriaCertificado.getOutputStream());
+                		        escritor.write(senhaKeystore + "\n"); // Fornece a senha do keystore
+                		        escritor.flush();
+                		        escritor.close();
+                		    }
+                		    
+                		    int codigoRetorno = processoCriaCertificado.waitFor();
+                		    
+                		    if (codigoRetorno == 0) {
+                		        System.out.println("Certificado criado com sucesso.");
+                		    } else {
+                		        System.out.println("Erro ao criar certificado.");
+                		    }
+                		} else {
+                		    System.out.println("Erro ao criar keystore.");
+                		}
+		                   
 	                    String nameCertificado = userUsername+".cer";
 	                    sendCertToServer(nameCertificado, outStream);
-	                    String[] lista = {nameCertificado};
-	                    deleteFiles(lista, null, null);	
+	                    File certFile = new File(nameCertificado);
+	                    if(certFile.exists()){
+	                    	certFile.delete();
+	                    }
 	                    System.out.println("Username cadastrado com sucesso");
 	                    
                 	}else {                		
@@ -153,154 +183,159 @@ public class mySNS {
                 
 
                                
-        	}else if (args.length >= 6 && args[4].equals("-g")) {
+        	}else if (args.length >= 8 && args[4].equals("-p") && args[6].equals("-g")) {
+        		
+        		String password = args[5];
         		
             	outStream.writeObject(userUsername);
             	outStream.writeObject(true);
             	
-            	// Determine the count of files to be sent
-                int fileCount = 0;
-
-                // Increment file count for each valid file
-                for (int i = 5; i < args.length; i++) {
-                    File file = new File(args[i]);
-                    
-                    fileCount++;
-                                                     
-                }
-                System.out.println("n ficheiros a pedir: "+fileCount);
-                // Send the count of files to the server
-               
-                outStream.writeInt(fileCount);
-                outStream.flush();
-                for (int i = 5; i < args.length; i++) {
-                    File file = new File(args[i]);
-                    
-                        // Send the filename to the server
-                        outStream.writeObject(file.getName());
-                        outStream.flush();                    
-                }                              
-               
-                    int existingFileCount = (int) inStream.readObject();
-                    System.out.println("Server has " + existingFileCount + " existing files.");
-                
-                
-                for(int j =0; j<existingFileCount; j++) {
-                	String filename = (String) inStream.readObject();
-                	long fileSize = (long) inStream.readObject();
-                	try (FileOutputStream fos = new FileOutputStream(filename)){
-                		byte[] buffer = new byte[1024];
-                        int bytesRead;
-                        long total=0;
-                        while (total<fileSize && (bytesRead=inStream.read(buffer)) != -1) {
-                       	 	fos.write(buffer,0,bytesRead);
-                       	 	total+=bytesRead;
-                        }
-                        System.out.println("ficheiro "+filename+" recebido");
-                        ficheirosRecebidos.add(filename);
-                        
-                    }                	
-                }                
-                
-                for(String ficheiro : ficheirosRecebidos){
-                	
-                	String[] lista = ficheiro.split("\\.");
-                	String extensao = lista[lista.length-1];
-                	
-                	if(extensao.equals("cifrado")) {
-                		String chave = lista[0]+"."+lista[1]+".chave_secreta."+ userUsername;
-                		System.out.println("------------------------------------------------------------------");
-                		decifraFile(ficheiro,chave,userUsername);
-                		System.out.println("------------------------------------------------------------------");
-                		
-                	}else if(extensao.equals("assinado")) {
-                		
-                		for(String teste : ficheirosRecebidos) {
-                			if(teste.startsWith(lista[0]+"."+lista[1]+".assinatura.")) {
-                            	String[] fic = teste.split("\\.");
-                            	doctor = fic[3];
-                        		System.out.println("------------------------------------------------------------------");
-                            	verificaAssinatura(ficheiro, doctor);
-                        		System.out.println("------------------------------------------------------------------");
-                            }
-                		}
-
-                	}else if (extensao.equals("seguro")) {
-                		System.out.println("------------------------------------------------------------------");
-                		String chave = lista[0]+"."+lista[1]+".chave_secreta."+ userUsername;
-                		
-                		for(String teste : ficheirosRecebidos) {
-                			if(teste.startsWith(lista[0]+"."+lista[1]+".assinatura.")) {
-                            	String[] fic = teste.split("\\.");
-                            	doctor = fic[3];
-                            	decifraFile(ficheiro,chave,userUsername);
-                           
-                            	verificaAssinatura(lista[0]+"."+lista[1], doctor);
-                            	
-                        		System.out.println("------------------------------------------------------------------");
-                        		
-                        		
-
-                            }
-                		}
-                	}
-                
-                } 
-            
-            }else if(args.length >= 9 && args[4].equals("-p")) {
-            	String pass = args[5];
-            	String doctorUsername = args[3];
-                String userUsernamee = args[7];
-                String metodo = args[8];
-                
-                
-                if("!".equals("!")){
-                	System.out.println("");
-                }else {
-                	System.out.println("A password não corresponde com o user");
-                }
-                
+            	outStream.writeObject(password);
+            	String recebe = (String) inStream.readObject();
             	
-            }
-            
-             else if (args.length >= 8) {
+            	if(recebe.equals("user cadastrado, passe correta")) {
+            		
+	            	// Determine the count of files to be sent
+	                int fileCount = 0;
+	
+	                // Increment file count for each valid file
+	                for (int i = 5; i < args.length; i++) {
+	                    File file = new File(args[i]);
+	                    
+	                    fileCount++;
+	                                                     
+	                }
+	                System.out.println("n ficheiros a pedir: "+fileCount);
+	                // Send the count of files to the server
+	               
+	                outStream.writeInt(fileCount);
+	                outStream.flush();
+	                for (int i = 5; i < args.length; i++) {
+	                    File file = new File(args[i]);
+	                    
+	                        // Send the filename to the server
+	                        outStream.writeObject(file.getName());
+	                        outStream.flush();                    
+	                }                              
+	               
+	                    int existingFileCount = (int) inStream.readObject();
+	                    System.out.println("Server has " + existingFileCount + " existing files.");
+	                
+	                
+	                for(int j =0; j<existingFileCount; j++) {
+	                	String filename = (String) inStream.readObject();
+	                	long fileSize = (long) inStream.readObject();
+	                	try (FileOutputStream fos = new FileOutputStream(filename)){
+	                		byte[] buffer = new byte[1024];
+	                        int bytesRead;
+	                        long total=0;
+	                        while (total<fileSize && (bytesRead=inStream.read(buffer)) != -1) {
+	                       	 	fos.write(buffer,0,bytesRead);
+	                       	 	total+=bytesRead;
+	                        }
+	                        System.out.println("ficheiro "+filename+" recebido");
+	                        ficheirosRecebidos.add(filename);
+	                        
+	                    }                	
+	                }                
+	                
+	                for(String ficheiro : ficheirosRecebidos){
+	                	
+	                	String[] lista = ficheiro.split("\\.");
+	                	String extensao = lista[lista.length-1];
+	                	
+	                	if(extensao.equals("cifrado")) {
+	                		String chave = lista[0]+"."+lista[1]+".chave_secreta."+ userUsername;
+	                		System.out.println("------------------------------------------------------------------");
+	                		decifraFile(ficheiro,chave,userUsername);
+	                		System.out.println("------------------------------------------------------------------");
+	                		
+	                	}else if(extensao.equals("assinado")) {
+	                		
+	                		for(String teste : ficheirosRecebidos) {
+	                			if(teste.startsWith(lista[0]+"."+lista[1]+".assinatura.")) {
+	                            	String[] fic = teste.split("\\.");
+	                            	doctor = fic[3];
+	                        		System.out.println("------------------------------------------------------------------");
+	                            	verificaAssinatura(ficheiro, doctor);
+	                        		System.out.println("------------------------------------------------------------------");
+	                            }
+	                		}
+	
+	                	}else if (extensao.equals("seguro")) {
+	                		System.out.println("------------------------------------------------------------------");
+	                		String chave = lista[0]+"."+lista[1]+".chave_secreta."+ userUsername;
+	                		
+	                		for(String teste : ficheirosRecebidos) {
+	                			if(teste.startsWith(lista[0]+"."+lista[1]+".assinatura.")) {
+	                            	String[] fic = teste.split("\\.");
+	                            	doctor = fic[3];
+	                            	decifraFile(ficheiro,chave,userUsername);
+	                           
+	                            	verificaAssinatura(lista[0]+"."+lista[1], doctor);
+	                            	
+	                        		System.out.println("------------------------------------------------------------------");	                        			                        	
+	                            }
+	                		}
+	                	}
+	                
+	                }}else {
+	                	System.out.println("User não cadastrado ou passe incorreta");
+	                }
+            //fim do -g
+            }else if (args[4].equals("-p") && args.length >= 10) {
+            	
             	 String doctorUsername = args[3];
-                 String userUsernamee = args[5];
+            	 String password = args[5];
+                 String userr = args[7];
 
-                
                  File medicoFile = new File("keystore." + doctorUsername);
                  if (!medicoFile.exists()) {
                      System.out.println("Keystore do medico " + doctorUsername + " nao existe");
                      return;
                  }
-
                
-                 File utenteFile = new File("keystore." + userUsernamee);
+                 File utenteFile = new File("keystore." + userr);
                  if (!utenteFile.exists()) {
-                     System.out.println("Keystore do utente" + userUsernamee + " nao existe.");
+                     System.out.println("Keystore do utente" + userr + " nao existe.");
                      return;
                  }
                  
-               
-                String command = args[6];
-                String[] filenames = new String[args.length - 7];
-                System.arraycopy(args, 7, filenames, 0, filenames.length);
-                switch (command) {
-                    case "-sc":
-                        metodosc(hostname, port, filenames, doctorUsername, userUsernamee);
-                        deleteFiles(filenames, userUsernamee, doctorUsername);
-                        break;
-                    case "-sa":
-                        metodosa(hostname, port, filenames, doctorUsername, userUsernamee);
-                        deleteFiles(filenames, userUsernamee, doctorUsername);
-                        break;
-                    case "-se":
-                        metodose(hostname, port, filenames, doctorUsername, userUsernamee);
-                        deleteFiles(filenames, userUsernamee, doctorUsername);
-                        break;
-                    default:
-                        System.out.println("Comando invalido: " + command);
-                }
+	             outStream.writeObject(userr);
+	             outStream.writeObject(false);
+
+	             
+                String command = args[8];
+                
+                outStream.writeObject(password);
+                outStream.writeObject("-s#");
+                
+
+            	String recebe = (String) inStream.readObject();
+                
+            	if(recebe.equals("user cadastrado, passe correta")) {
+            		String[] filenames = new String[args.length - 9];
+                    System.arraycopy(args, 9, filenames, 0, filenames.length);
+                    switch (command) {
+                        case "-sc":
+                            metodosc(hostname, port, filenames, doctorUsername, userr);
+                            deleteFiles(filenames, userr, doctorUsername);
+                            break;
+                        case "-sa":
+                            metodosa(hostname, port, filenames, doctorUsername, userr);
+                            deleteFiles(filenames, userr, doctorUsername);
+                            break;
+                        case "-se":
+                            metodose(hostname, port, filenames, doctorUsername, userr);
+                            deleteFiles(filenames, userr, doctorUsername);
+                            break;
+                        default:
+                            System.out.println("Comando invalido: " + command);
+                    }
+            	}else {
+            		System.out.println("user  não cadastrado ou passe incorreta");
+            	}
+            	                
             } else {
                 System.out.println("Comando invalido ou combinacao invalida");
             }
@@ -331,7 +366,6 @@ public class mySNS {
    	        File signature = new File(filename + ".assinatura." + doctorUsername);
    	        File cifradoAss = new File(filename + ".cifrado.assinado");
    	        File CifAss = new File(filename + ".cifrado.assinatura." + doctorUsername);
-   	        File cert = new File(filename);
 
    	        if (cifradoFile.exists()) {
    	            cifradoFile.delete();
@@ -350,9 +384,6 @@ public class mySNS {
    	        }
    	        if (CifAss.exists()) {
    	        	CifAss.delete(); 
-   	        }
-   	        if(cert.exists()) {
-   	        	cert.delete();
    	        }
    	    }
 	}
@@ -377,21 +408,6 @@ public class mySNS {
                     System.out.println("O arquivo " + filename + " não existe localmente. Ignorando...");
                     continue; 
                 }
-
-                /*
-                File cifradoFile = new File(filename + ".cifrado");
-                if (cifradoFile.exists()) {
-                    System.out.println("File " + cifradoFile.getName() + " already exists on the server. Skipping...");
-                    continue; 
-                }
-                
-                
-                File keyFile = new File(filename + ".chave_secreta." + userUsername);
-                if (keyFile.exists()) {
-                    System.out.println("File " + keyFile.getName() + " already exists on the server. Skipping...");
-                    continue; 
-                }*/
-
                 
                 KeyGenerator kg = KeyGenerator.getInstance("AES");
                 kg.init(128);
@@ -401,8 +417,8 @@ public class mySNS {
                 encryptAESKeyWithRSA(aesKey, userUsername, filename);
             
                 encryptedFiles.add(filename);
-                
             }
+            
             sendFilesToServer(encryptedFiles.toArray(new String[0]), userUsername);
             socket.close();
             
@@ -739,20 +755,25 @@ public class mySNS {
     
       
     private static void sendFilesToServer(String[] filenames, String userUsername) {
-        try {
-            ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
-            ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
-            
-            
-            outStream.writeObject(userUsername);            
-            outStream.writeObject(false);
+    	try {
+            System.out.println("sssssssssssssss");    	
+
+    		
+            outStream = new ObjectOutputStream(socket.getOutputStream());
+    		inStream = new ObjectInputStream(socket.getInputStream());
+
      
+            System.out.println("AAAAAAAAAAAAAAAAAAAAA");    	
+
             for (String filename : filenames) {
              
                 File cifradoFile = new File(filename + ".cifrado");
-                Long fileSize = cifradoFile.length();
+                long fileSize = cifradoFile.length();
+                System.out.println(fileSize);
+                
                 outStream.writeObject(fileSize); 
                 outStream.writeObject(filename + ".cifrado"); 
+                
                 try (BufferedInputStream cifradoFileB = new BufferedInputStream(new FileInputStream(cifradoFile))) {
                     byte[] buffer = new byte[1024];
                     int bytesRead;
@@ -764,8 +785,10 @@ public class mySNS {
                 
                 File keyFile = new File(filename + ".chave_secreta." + userUsername);
                 fileSize = keyFile.length();
+                
                 outStream.writeObject(fileSize); 
-                outStream.writeObject(filename + ".chave_secreta." + userUsername); 
+                outStream.writeUTF(filename + ".chave_secreta." + userUsername); 
+                
                 try (BufferedInputStream keyFileB = new BufferedInputStream(new FileInputStream(keyFile))) {
                     byte[] buffer = new byte[1024];
                     int bytesRead;
@@ -781,13 +804,10 @@ public class mySNS {
 
             
             Boolean acknowledgment = (Boolean) inStream.readObject();
-            //System.out.println("Server acknowledgment: " + acknowledgment);
 
             
             inStream.close();
             outStream.close();
-
-            
             socket.close();
             System.out.println("Conexao fechada.");
 
