@@ -333,7 +333,7 @@ public class mySNS {
                             deleteFiles(filenames, userr, doctorUsername);
                             break;
                         case "-se":
-                            metodose(hostname, port, filenames, doctorUsername, userr);
+                            metodose(outStream, inStream, hostname, port, filenames, doctorUsername, userr);
                             deleteFiles(filenames, userr, doctorUsername);
                             break;
                         default:
@@ -371,7 +371,7 @@ public class mySNS {
    	        File keyFile = new File(filename + ".chave_secreta." + userUsername);
    	        File signedFile = new File(filename + ".assinado");
    	        File signature = new File(filename + ".assinatura." + doctorUsername);
-   	        File cifradoAss = new File(filename + ".cifrado.assinado");
+   	        File cifradoAss = new File(filename + ".assinado.cifrado");
    	        File CifAss = new File(filename + ".cifrado.assinatura." + doctorUsername);
 
    	        if (cifradoFile.exists()) {
@@ -485,6 +485,8 @@ public class mySNS {
     
     /**
      * Método para executar o comando "-se" (Cifra e Assina os ficheiros)
+     * @param inStream 
+     * @param outStream 
      * 
      * @param hostname       Nome do host do servidor.
      * @param port           Número da porta do servidor.
@@ -492,7 +494,7 @@ public class mySNS {
      * @param doctorUsername Nome de usuário do médico.
      * @param userUsername   Nome de usuário do usuário.
      */
-    private static void metodose(String hostname, int port, String[] filenames, String doctorUsername, String userUsername) {
+    private static void metodose(ObjectOutputStream outStream, ObjectInputStream inStream, String hostname, int port, String[] filenames, String doctorUsername, String userUsername) {
 
         List<String> seFiles = new ArrayList<>();
 
@@ -518,7 +520,7 @@ public class mySNS {
             
             System.out.println("O ficheiro " + filename + " foi cifrado, assinado e enviado para o servidor com sucesso. ->" + filename+".seguro");
         }
-        sendFilesToServer3(seFiles.toArray(new String[0]), userUsername, doctorUsername);
+        sendFilesToServer3(outStream, inStream,seFiles.toArray(new String[0]), userUsername, doctorUsername);
         try {
 			socket.close();
 		} catch (IOException e) {
@@ -529,14 +531,9 @@ public class mySNS {
 
     
     
-     private static void sendFilesToServer3(String[] filenames, String userUsername, String doctorUsername) {
+     private static void sendFilesToServer3(ObjectOutputStream outStream, ObjectInputStream inStream, String[] filenames, String userUsername, String doctorUsername) {
     	 try {
-             ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
-             ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
              
-             
-             outStream.writeObject(userUsername);            
-             outStream.writeObject(false);
                    
              for (String filename : filenames) {
               
