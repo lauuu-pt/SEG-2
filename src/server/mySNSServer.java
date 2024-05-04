@@ -52,80 +52,81 @@ public class mySNSServer {
         System.out.println("Passe do admin para iniciar o servidor: ");
         String input = scanner.nextLine();
 		passAdmin = input;
-        
-        if(input.equals("123456")) {
-        	System.out.println("passe correta");
-            File passwordFile = new File("/home/aluno-di/eclipse-workspace/SEG-2/src/server", "users.txt");
-            
-            if(passwordFile.createNewFile()) { 
-            		Scanner scanner2 = new Scanner(System.in);
-                    System.out.println("ficheiro de users não exite, digite a passe do admin para cria-lo: ");
-                    String input2 = scanner2.nextLine();
-                    if(input2.equals(passAdmin)) {
-	                	try (BufferedWriter writer = new BufferedWriter(new FileWriter(passwordFile))) {                    	                
-	            	    	adcUser("admin", passAdmin , writer);
-	            	        System.out.println("Arquivo de texto criado com sucesso: users.txt");
-	            	        writer.close();
-	            	        
-	            	        escreveMAC(passwordFile.getAbsolutePath(), passAdmin);
-	            	        System.out.println("MAC escrito");
-
-	            	        Boolean a = verificaMAC(passwordFile.getAbsolutePath(), passAdmin);
-	                    	if(a) {
-	                    		System.out.println("MAC verificado: OK");
-	                    		server.startServer();
-	                    	}else {
-	                    		System.out.println("MAC verificado: NOK\nServidor fechado");
-	                    		return;
-	                    	}	            	       
-                	}
-            	}else {
-            		System.out.println("passe errada, servidor fechado");
-            	    return;
-                }
-            }else{
-            	
-            	File mac = new File("/home/aluno-di/eclipse-workspace/SEG-2/src/server", "users.txt.mac");
-            	
-            	if(mac.exists()) {
-            		Boolean a = verificaMAC(passwordFile.getAbsolutePath(), input);
-                	if(a) {
-                		System.out.println("MAC verificado: OK");
-                		server.startServer();
-                	}else {
-                		System.out.println("MAC verificado: NOK\nServidor fechado");
-                		return;
-                	}
-            	}else {
-            		Scanner scanner3 = new Scanner(System.in);
-                    System.out.println("o mac do ficheiro users.txt nao existe\nDeseja escreve-lo?\n(responda (s/n)");
-                    String input3 = scanner3.nextLine();
-                    
-                    if(input3.equals("s")) {
-                    	escreveMAC(passwordFile.getAbsolutePath(), input);
+		
+        File passwordFile = new File("/home/aluno-di/eclipse-workspace/SEG-2/src/server", "users.txt");
+           
+        if(passwordFile.createNewFile()) { 
+        		Scanner scanner2 = new Scanner(System.in);
+                System.out.println("ficheiro de users não exite, repita a passe do admin para cria-lo: ");
+                String input2 = scanner2.nextLine();
+                if(input2.equals(passAdmin)) {
+                	try (BufferedWriter writer = new BufferedWriter(new FileWriter(passwordFile))) {                    	                
+            	    	adcUser("admin", passAdmin , writer);
+            	        System.out.println("Arquivo de texto criado com sucesso: users.txt");
+            	        writer.close();
+            	        
+            	        escreveMAC(passwordFile.getAbsolutePath(), passAdmin);
             	        System.out.println("MAC escrito");
 
-            	        Boolean a = verificaMAC(passwordFile.getAbsolutePath(), input);
+            	        Boolean a = verificaMAC(passwordFile.getAbsolutePath(), passAdmin);
                     	if(a) {
                     		System.out.println("MAC verificado: OK");
                     		server.startServer();
                     	}else {
                     		System.out.println("MAC verificado: NOK\nServidor fechado");
                     		return;
-                    	}
-                    }else if(input3.equals("n")){
-                    	System.out.println("Voce deve proteger as suas senhas\nServidor fechado");
-                    	return;
-                    }else {
-                    	System.out.println("sua resposta deveria ser s ou n e você digitou: "+ input3 +"\nServidor fechado");
-                    	return;
-                    }                    
-            	}            	            	            	
-            }            
-            
-        }else {
-        	System.out.println("Passe de admin errada/nServidor fechado");
-        	return;
+                    	}	            	       
+            	}
+        	}else {        		
+        		System.out.println("passes diferentes, servidor fechado");
+        	    return;
+            }
+        }else{ 
+        	
+        	boolean verificaPass = verificaPass("admin", input);
+        	if(verificaPass){
+        	
+	        	File mac = new File("/home/aluno-di/eclipse-workspace/SEG-2/src/server", "users.txt.mac");
+	        	
+	        	if(mac.exists()) {
+	        		Boolean a = verificaMAC(passwordFile.getAbsolutePath(), input);
+	            	if(a) {
+	            		System.out.println("MAC verificado: OK");
+	            		server.startServer();
+	            	}else {
+	            		System.out.println("MAC verificado: NOK\nServidor fechado");
+	            		return;
+	            	}
+	        	}else {
+	        		Scanner scanner3 = new Scanner(System.in);
+	                System.out.println("o mac do ficheiro users.txt nao existe\nDeseja escreve-lo?\n(responda (s/n)");
+	                String input3 = scanner3.nextLine();
+	                
+	                if(input3.equals("s")) {
+	                	escreveMAC(passwordFile.getAbsolutePath(), input);
+	        	        System.out.println("MAC escrito");
+	
+	        	        Boolean a = verificaMAC(passwordFile.getAbsolutePath(), input);
+	                	if(a) {
+	                		System.out.println("MAC verificado: OK");
+	                		server.startServer();
+	                	}else {
+	                		System.out.println("MAC verificado: NOK\nServidor fechado");
+	                		return;
+	                	}
+	                }else if(input3.equals("n")){
+	                	System.out.println("Voce deve proteger as suas senhas\nServidor fechado");
+	                	return;
+	                }else {
+	                	System.out.println("sua resposta deveria ser s ou n e você digitou: "+ input3 +"\nServidor fechado");
+	                	return;
+	                }                    
+	        	}  
+	        	
+	        }else {
+	        	System.out.println("Pass de Admin errada, servidor fechado");
+	        	return;
+	        }	
         }
     }
 
@@ -173,8 +174,8 @@ public class mySNSServer {
          */
         public void run() {
         	
-            try (var outStream = new ObjectOutputStream(socket.getOutputStream());
-                 var inStream = new ObjectInputStream(socket.getInputStream())) {
+            try (var inStream = new ObjectInputStream(socket.getInputStream());
+            	var outStream = new ObjectOutputStream(socket.getOutputStream())) {
 
                 String user = null;
                 Boolean bool = null;
@@ -182,7 +183,7 @@ public class mySNSServer {
                 String pass = null;
                 
                 File userDirectory = null;
-                Boolean allFilesReceived = null; 
+                boolean allFilesReceived = false; 
                 
                 File passwordFile = new File("/home/aluno-di/eclipse-workspace/SEG-2/src/server", "users.txt");
 
@@ -242,9 +243,26 @@ public class mySNSServer {
 	                    	}
 		                    
 		                    BufferedWriter writer2 = new BufferedWriter(new FileWriter(passwordFile, true));
-	             	        adcUser(user, pass, writer2);
-	             	        writer2.close();
-		                    System.out.println(user + ": Registado com sucesso!");
+		                   	boolean a = verificaMAC(passwordFile.getAbsolutePath(), passAdmin);
+		                   	
+		                   	if(a) {
+		                   		
+		                   		adcUser(user, pass, writer2);
+		             	        writer2.close();
+			                    System.out.println(user + ": Registado com sucesso!");
+
+		                        File mac = new File("/home/aluno-di/eclipse-workspace/SEG-2/src/server", "users.txt.mac");
+
+		             	        mac.delete();
+		             	        escreveMAC(passwordFile.getAbsolutePath(), passAdmin);
+			                   	verificaMAC(passwordFile.getAbsolutePath(), passAdmin);
+			                   	System.out.println("MAC atualizado");
+			                   	
+		                   	}else {
+		                   		System.out.println("MAC verificado: NOK/nServidor fechado");
+		                   		return;
+		                   	}
+
 		                }
 		                else {
 		                	System.out.println("Utilizador: " + user + " ja existe");
@@ -252,110 +270,136 @@ public class mySNSServer {
 		                	return;
 		                }
 
-            		} else {
-		                try {		                	
-		                	while (true) {
-		                	    Long fileSize = (Long) inStream.readObject();
-		                	    if (fileSize == -1) {
-		                	        System.out.println("O cliente acabou de enviar os ficheiros.");
-		                	        break;
-		                	    }
-		                	    
-		                	    String filename = (String) inStream.readObject();
-		                	    
-				                allFilesReceived = true;
+            		}else { //trata das -s#
+            			
+            			if (verificaUser(user) && verificaPass(user, pass)) { 
+            				outStream.writeObject("user cadastrado, passe correta");
+            				System.out.println("whatttttttttttttttttttttttttttt");
+                        	boolean a = verificaMAC(passwordFile.getAbsolutePath(), passAdmin);
+                        	if(a) {                                                      		
+				                allFilesReceived = true; 
+				                try {		       				                
+				                	
+				                	while (true) {
+				                		System.out.println("whatttttttttttttttttttttttttttt");
+				                		long fileSize = (long) inStream.readObject();
+				                		System.out.println(fileSize);				                		
+				                		  if (fileSize == -1) {
+					                	        System.out.println("O cliente acabou de enviar os ficheiros.");
+					                	        break;
+					                	    }
+				                		String filename = (String) inStream.readObject();
+				                		
+				                		
+				                	  
+				                		var userDirectoryy = new File("/home/aluno-di/eclipse-workspace/SEG-2/src/server", user);
+				                	    var outputFile = new File(userDirectoryy, filename);
+				                	    try (var outFileStream = new FileOutputStream(outputFile);
+				                	         var outFile = new BufferedOutputStream(outFileStream)) {
+				                	        byte[] buffer = new byte[1024];
+				                	        int bytesRead;
+				                	        long remainingBytes = fileSize;
+				                	        while (remainingBytes > 0 && (bytesRead = inStream.read(buffer, 0, (int) Math.min(buffer.length, remainingBytes))) != -1) {
+				                	            outFile.write(buffer, 0, bytesRead);
+				                	            remainingBytes -= bytesRead;
+				                	        }
+				                	       
 
-		                	    
-		                	    var outputFile = new File(userDirectory, filename);
-		                	    try (var outFileStream = new FileOutputStream(outputFile);
-		                	         var outFile = new BufferedOutputStream(outFileStream)) {
-		                	        byte[] buffer = new byte[1024];
-		                	        int bytesRead;
-		                	        long remainingBytes = fileSize;
-		                	        while (remainingBytes > 0 && (bytesRead = inStream.read(buffer, 0, (int) Math.min(buffer.length, remainingBytes))) != -1) {
-		                	            outFile.write(buffer, 0, bytesRead);
-		                	            remainingBytes -= bytesRead;
-		                	        }
-		                	    } catch (IOException e) {
-		                	        e.printStackTrace();
-		                	        allFilesReceived = false;
-		                	    }
+				                	    } catch (IOException e) {
+				                	        e.printStackTrace();
+				                	        allFilesReceived = false;
+				                	    }
+				
+				                	    System.out.println("Fim do ficheiro: " + filename);
+				                	}
+			
+			
+				                } catch (EOFException e) {
+				                
+				                    System.err.println("Cliente desconectou do servidor.");
+				                    allFilesReceived = false; 
+				                } catch (ClassNotFoundException e1) {
+				                    e1.printStackTrace();
+				                    allFilesReceived = false; 
+				                }
 		
-		                	    System.out.println("Fim do ficheiro: " + filename);
-		                	}
-	
-	
-		                } catch (EOFException e) {
 		                
-		                    System.err.println("Cliente desconectou do servidor.");
-		                    allFilesReceived = false; 
-		                } catch (ClassNotFoundException e1) {
-		                    e1.printStackTrace();
-		                    allFilesReceived = false; 
-		                }
-	
-	                
-		                outStream.writeObject(allFilesReceived); 
-		                System.out.println("Transferencia dos ficheiros do servidor reconhecida: " + allFilesReceived);
-	                }
+				                outStream.writeObject(allFilesReceived); 
+				                System.out.println("Transferencia dos ficheiros do servidor reconhecida: " + allFilesReceived);
+                        	}else {
+                        		System.out.println("MAC verificado: NOK/nServidor fechado");
+                        		return;
+                        	}
+                    	}else {
+                    		System.out.println("user não cadastrado ou passe incorreta");
+                        	outStream.writeObject("user não cadastrado ou passe incorreta");
+                        	return;
+                    	}
+        			}
 	                
                 }else { //trata do -g
-                	System.out.println("aqui");
+                	String password = (String) inStream.readObject();
                 	
-                	if (verificaUser(user)) {
-                    	outStream.writeObject("user cadastrado");
-
-                		int fileCount = inStream.readInt();
-                        System.out.println("Client will send " + fileCount + " files.");
-                        List<String> existingFiles = new ArrayList<>();
-                        List<File> FilesServer = new ArrayList<File>();
-                        for (int i = 0; i < fileCount; i++) {
-                            // Read the filename from the client
-                            String filename = (String) inStream.readObject();
-                            System.out.println("Received filename: " + filename);
-                        // Check if any file on the server starts with the received filename
+                	if (verificaUser(user) && verificaPass(user, password)) {
+                    	outStream.writeObject("user cadastrado, passe correta");
+                    	
+                    	Boolean a = verificaMAC(passwordFile.getAbsolutePath(), passAdmin);
+                    	if(a) {
+                    		
+                    		int fileCount = inStream.readInt();
+                            System.out.println("Client will send " + fileCount + " files.");
                             
-                        File serverDirectory = new File("/home/aluno-di/eclipse-workspace/SEG/src/server", user);
-                        File[] filesInDirectory = serverDirectory.listFiles();
-                        if (filesInDirectory != null) {
-                            for (File file : filesInDirectory) {
-                                if (file.exists() && file.isFile() && file.getName().startsWith(filename)) {
-                                    existingFiles.add(file.getName());
-                                    FilesServer.add(file);
-                                    
+                            List<String> existingFiles = new ArrayList<>();
+                            List<File> FilesServer = new ArrayList<File>();
+                            for (int i = 0; i < fileCount; i++) {
+                                // Read the filename from the client
+                                String filename = (String) inStream.readObject();
+                                System.out.println("Received filename: " + filename);
+                            // Check if any file on the server starts with the received filename
+                                
+                            File serverDirectory = new File("/home/aluno-di/eclipse-workspace/SEG-2/src/server", user);
+                            File[] filesInDirectory = serverDirectory.listFiles();
+                            if (filesInDirectory != null) {
+                                for (File file : filesInDirectory) {
+                                    if (file.exists() && file.isFile() && file.getName().startsWith(filename)) {
+                                        existingFiles.add(file.getName());
+                                        FilesServer.add(file);
+                                        
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    // Inform the client about the filenames that already exist on the server
-                    //ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
-                    System.out.println(existingFiles);
-                    System.out.println("no files: "+existingFiles.size());
-                    //int existingFilesSize=existingFiles.size();
-                    int existingFileSize = existingFiles.size();
-                    outStream.writeObject(existingFileSize); // Send the count of existing files
-                    outStream.flush();
-                    for(int j =0; j<existingFileSize; j++) {
-                    	File ficheiro=FilesServer.get(j);
-                    	outStream.writeObject(ficheiro.getName());
-                    	outStream.writeObject(ficheiro.length());
-                    	
-                    	 try (BufferedInputStream cifradoFileB = new BufferedInputStream(new FileInputStream(ficheiro))) {
-                             byte[] buffer = new byte[1024];
-                             int bytesRead;
-                             while ((bytesRead = cifradoFileB.read(buffer, 0, 1024)) > 0) {
-                            	 outStream.write(buffer, 0, bytesRead);
+                        // Inform the client about the filenames that already exist on the server
+                        //ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
+                        System.out.println(existingFiles);
+                        System.out.println("no files: "+existingFiles.size());
+                        //int existingFilesSize=existingFiles.size();
+                        int existingFileSize = existingFiles.size();
+                        outStream.writeObject(existingFileSize); // Send the count of existing files
+                        outStream.flush();
+                        for(int j =0; j<existingFileSize; j++) {
+                        	File ficheiro=FilesServer.get(j);
+                        	outStream.writeObject(ficheiro.getName());
+                        	outStream.writeObject(ficheiro.length());
+                        	
+                        	 try (BufferedInputStream cifradoFileB = new BufferedInputStream(new FileInputStream(ficheiro))) {
+                                 byte[] buffer = new byte[1024];
+                                 int bytesRead;
+                                 while ((bytesRead = cifradoFileB.read(buffer, 0, 1024)) > 0) {
+                                	 outStream.write(buffer, 0, bytesRead);
+                                 }
+                                 System.out.println("ficheiro "+ficheiro.getName()+" enviado");
                              }
-                             System.out.println("ficheiro "+ficheiro.getName()+" enviado");
-                         }
-                    	 outStream.flush();
-                    }
-
-                   
+                        	 outStream.flush();
+                        }
+                    	}else {
+                    		System.out.println("MAC verificado: NOK/nServidor Fechado");
+                    		return;
+                    	}
                 	}else {
-                		System.out.println("User não cadastrado");
-                    	outStream.writeObject("user não cadastrado");
+                		System.out.println("User não cadastrado ou passe incorreta");
+                    	outStream.writeObject("user não cadastrado ou passe incorreta");
                 	}
                     
                 }}catch (IOException e) {
@@ -405,12 +449,7 @@ public class mySNSServer {
         try {
         File mac = new File("/home/aluno-di/eclipse-workspace/SEG/src/server", "users.txt.mac");
         File pass = new File("/home/aluno-di/eclipse-workspace/SEG/src/server", "users.txt");
-        if(mac.exists()) {
-        	mac.delete();        	
-        	escreveMAC(pass.getAbsolutePath(), passAdmin);
-        	System.out.println("MAC atualizado");
-        	verificaMAC(pass.getAbsolutePath(), passAdmin);//Tem q passar  apasse do admin
-        }
+  
         }finally {
         	
         }
@@ -542,5 +581,54 @@ public class mySNSServer {
         
         return false;
     }
-
+ 	
+ 	public static String[] pegaPass(String username){
+ 		
+        File path = new File("/home/aluno-di/eclipse-workspace/SEG-2/src/server", "users.txt");
+        String[] passInfo = new String[2];
+        
+        if (!path.exists()) {
+            System.err.println("O arquivo de usuários não existe.");
+            return null;
+        }
+        
+        try (BufferedReader reader = new BufferedReader(new FileReader(path))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(";");
+                if (parts.length >= 1 && parts[0].equals(username)) {
+                    passInfo[0] = parts[1]; // saltString
+                    passInfo[1] = parts[2]; // hashedPasswordString
+                    return passInfo;
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+ 	
+ 	 public static boolean verificaPass(String username, String passwordToCheck) throws NoSuchAlgorithmException, InvalidKeySpecException {
+         
+ 		 String[] passInfo = pegaPass(username);
+ 		 
+ 		 String saltString = passInfo[0];
+ 		 String hashedPasswordString = passInfo[1];
+ 		 
+         // Decode salt e a senha hasheada
+         byte[] salt = Base64.getDecoder().decode(saltString);
+         byte[] hashedPassword = Base64.getDecoder().decode(hashedPasswordString);
+         
+         // Gerar senha hasheada com a mesma senha e salt
+         String generatedHash = hashPassword(passwordToCheck, salt);
+         
+         // Comparar as senhas hasheadas
+         if (generatedHash.equals(hashedPasswordString)) {
+             System.out.println("Senha correta!");
+             return true;
+         } else {
+             System.out.println("Senha incorreta!");
+             return false;
+         }
+ 	 }
 }
