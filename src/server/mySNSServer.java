@@ -29,6 +29,9 @@ import javax.crypto.Mac;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
+import javax.net.ssl.SSLServerSocket;
+import javax.net.ssl.SSLServerSocketFactory;
+import javax.net.ssl.SSLSocket;
 
 public class mySNSServer {
 	/*Membros do grupo:
@@ -55,12 +58,15 @@ public class mySNSServer {
 		passAdmin = input;
 		
         File passwordFile = new File("/home/aluno-di/eclipse-workspace/SEG-2/src/server", "users.txt");
-           
-        if(passwordFile.createNewFile()) { 
-        		Scanner scanner2 = new Scanner(System.in);
-                System.out.println("ficheiro de users não exite, repita a passe do admin para cria-lo: ");
-                String input2 = scanner2.nextLine();
-                if(input2.equals(passAdmin)) {
+         if(!passwordFile.exists())  {
+        	 Scanner scanner2 = new Scanner(System.in);
+             System.out.println("ficheiro de users não exite, repita a passe do admin para cria-lo: ");
+             String input2 = scanner2.nextLine();
+         
+             
+        		
+            if(input2.equals(passAdmin)) {
+            	if(passwordFile.createNewFile()) { 
                 	try (BufferedWriter writer = new BufferedWriter(new FileWriter(passwordFile))) {                    	                
             	    	adcUser("admin", passAdmin , writer);
             	        System.out.println("Arquivo de texto criado com sucesso: users.txt");
@@ -78,7 +84,7 @@ public class mySNSServer {
                     		return;
                     	}	            	       
             	}
-        	}else {        		
+        	}}else {        		
         		System.out.println("passes diferentes, servidor fechado");
         	    return;
             }
@@ -136,20 +142,30 @@ public class mySNSServer {
      * Método para iniciar o servidor.
      */
     public void startServer(){
-    	System.out.println("\nServidor aberto");
-        try (var sSoc = new ServerSocket(23456)) {
+        System.out.println("\nServidor aberto");
+        try {
+            // Configura o keystore para o servidor
+            System.setProperty("javax.net.ssl.keyStore", "/home/aluno-di/eclipse-workspace/SEG-2/src/server/keystore.server");
+            System.setProperty("javax.net.ssl.keyStorePassword", "123456");
+
+            // Cria o SSLServerSocketFactory
+            SSLServerSocketFactory sslServerSocketfactory = (SSLServerSocketFactory) SSLServerSocketFactory.getDefault();
+
+            // Cria o SSLServerSocket
+            SSLServerSocket sslServerSocket = (SSLServerSocket) sslServerSocketfactory.createServerSocket(23456);
+
             while (true) {
                 try {
-                    var inSoc = sSoc.accept();
-                    var newServerThread = new ServerThread(inSoc);                 
-                    	newServerThread.start();
+                    var socket = sslServerSocket.accept();
+                    var newServerThread = new ServerThread(socket);
+                    newServerThread.start();
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             }
         } catch (IOException e1) {
-			e1.printStackTrace();
-		}
+            e1.printStackTrace();
+        }
     }
 
     
@@ -211,8 +227,10 @@ public class mySNSServer {
 		                    if (userDirectory.mkdirs()) {
 		                    	outStream.writeObject(true);
 		                    	
-		                        System.out.println("Criado um diretorio para o utilizador: " + user+"/n");		                    			                        
-			                    Long fileSize = (Long) inStream.readObject();
+		                    	
+		                    	System.out.println("Criado um diretorio para o utilizador: " + user+"/n");		
+		                    	
+			                    long fileSize = (long) inStream.readObject();
 				                
 			            	    if (fileSize == -1) {
 			            	        System.out.println("O cliente acabou de enviar o certificado.");
@@ -282,7 +300,14 @@ public class mySNSServer {
                         		String certB = (String) inStream.readObject();
                         		
 	                			if(certB.equals("cert!exist")){
-	                				
+	                				String doctorUsername = (String) inStream.readObject();
+	                				String passDr = (String) inStream.readObject();
+	                				if(!verificaPass(doctorUsername, passDr)){
+	                					outStream.writeObject("abort");
+	                					System.exit(0);
+	                				}else {
+	                					outStream.writeObject("continue");
+	                				}
 	                        		String certName = (String) inStream.readObject();
 	                                System.out.println("Received filename: " + certName);
 		                                	                                 
@@ -382,8 +407,8 @@ public class mySNSServer {
                         	outStream.writeObject("user não cadastrado ou passe incorreta");
                         	return;
                     	}
-        			}
-	                
+        			
+            		}  
                 }else { //trata do -g
                 	String password = (String) inStream.readObject();
                 	

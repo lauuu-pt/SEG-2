@@ -1,4 +1,0 @@
-Executar: 
-./get_keystore_password.sh userUsername
-
-para pegara a pass

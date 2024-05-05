@@ -18,11 +18,13 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.security.InvalidKeyException;
 import java.security.Key;
+import java.security.KeyManagementException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.SecureRandom;
 import java.security.Signature;
 import java.security.SignatureException;
 import java.security.UnrecoverableKeyException;
@@ -45,6 +47,10 @@ import javax.crypto.Mac;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.*;
+
 
 public class mySNS {
 	/*Membros do grupo:
@@ -68,8 +74,10 @@ public class mySNS {
      * @throws InvalidKeyException 
      * @throws InterruptedException 
      * @throws IOException 
+     * @throws KeyManagementException 
+     * @throws UnrecoverableKeyException 
      */
-    public static void main(String[] args) throws InvalidKeyException, KeyStoreException, NoSuchAlgorithmException, CertificateException, SignatureException, InterruptedException, IOException{
+    public static void main(String[] args) throws InvalidKeyException, KeyStoreException, NoSuchAlgorithmException, CertificateException, SignatureException, InterruptedException, IOException, KeyManagementException, UnrecoverableKeyException{
 
     	
     	if (args.length < 6 || !args[0].equals("-a") ) {
@@ -96,14 +104,27 @@ public class mySNS {
 
         try {
             
-            socket = new Socket(hostname, port);
-            System.out.println("Conectado ao servidor.");
-            String userUsername = args[3];
-            List<String> ficheirosRecebidos = new ArrayList<>();
-            String doctor;
-            ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
-        	ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
-           
+        	  System.setProperty("javax.net.ssl.trustStore", "/home/aluno-di/eclipse-workspace/SEG-2/src/client/truststore.client");
+              System.setProperty("javax.net.ssl.trustStorePassword", "123456");
+
+              // Cria o contexto SSL
+              SSLContext sslContext = SSLContext.getInstance("TLS");
+              TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+              KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+              trustStore.load(new FileInputStream("truststore.client"), "123456".toCharArray());
+              trustManagerFactory.init(trustStore);
+              sslContext.init(null, trustManagerFactory.getTrustManagers(), new SecureRandom());
+
+              // Cria o socket SSL
+              SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
+              socket = (SSLSocket) sslSocketFactory.createSocket(hostname, port);
+	          System.out.println("Conectado ao servidor.");
+	          String userUsername = args[3];
+	          List<String> ficheirosRecebidos = new ArrayList<>();
+	          String doctor;
+	          ObjectOutputStream outStream = new ObjectOutputStream(socket.getOutputStream());
+	          ObjectInputStream inStream = new ObjectInputStream(socket.getInputStream());
+	           
             
             if (args.length == 6 && args[2].equals("-au")){
             	
@@ -112,74 +133,74 @@ public class mySNS {
                 outStream.writeObject(userUsername);
                 outStream.writeObject(false);
                 outStream.writeObject(password);
-            	outStream.writeObject("-au");
+                outStream.writeObject("-au");
                 
                 String ComandocriaCerti = "keytool -export -keystore keystore."+ userUsername + " -alias " + userUsername + " -file " + userUsername+".cer";
                 String comandoKeystore = "keytool -genkeypair -keysize 2048 -alias "+ userUsername + " -keyalg rsa -keystore keystore." + userUsername + " -storetype PKCS12";
                 String senhaKeystore = password;                
 
                 try {
-                	                	
-                   	boolean fileExists = (boolean) inStream.readObject();
-                	
-                	if (fileExists){
-	                	Process processoKeystore = Runtime.getRuntime().exec(comandoKeystore);
-                		if (password != null && !password.isEmpty()) {
-                		    OutputStreamWriter escritorKeystore = new OutputStreamWriter(processoKeystore.getOutputStream());
-                		    escritorKeystore.write(password + "\n"); 
-                		    escritorKeystore.write(password + "\n"); 
-                		    escritorKeystore.write("\n"); 
-                		    escritorKeystore.write("\n"); 
-                		    escritorKeystore.write("\n");
-                		    escritorKeystore.write("\n");
-                		    escritorKeystore.write("\n");
-                		    escritorKeystore.write("\n"); 
-                		    escritorKeystore.write("yes\n");
-                		    escritorKeystore.flush();
-                		    escritorKeystore.close();                		    
-                		}
+                                
+                   boolean fileExists = (boolean) inStream.readObject();
+                
+                if (fileExists){
+                Process processoKeystore = Runtime.getRuntime().exec(comandoKeystore);
+                if (password != null && !password.isEmpty()) {
+                    OutputStreamWriter escritorKeystore = new OutputStreamWriter(processoKeystore.getOutputStream());
+                    escritorKeystore.write(password + "\n"); 
+                    escritorKeystore.write(password + "\n"); 
+                    escritorKeystore.write("\n"); 
+                    escritorKeystore.write("\n"); 
+                    escritorKeystore.write("\n");
+                    escritorKeystore.write("\n");
+                    escritorKeystore.write("\n");
+                    escritorKeystore.write("\n"); 
+                    escritorKeystore.write("yes\n");
+                    escritorKeystore.flush();
+                    escritorKeystore.close();                    
+                }
 
-                		int codigoRetornoKeystore = processoKeystore.waitFor();
-                		
-                		if (codigoRetornoKeystore == 0) {
-                		    System.out.println("Keystore criado com sucesso.");
+                int codigoRetornoKeystore = processoKeystore.waitFor();
+                
+                if (codigoRetornoKeystore == 0) {
+                    System.out.println("Keystore criado com sucesso.");
 
-                		    Process processoCriaCertificado = Runtime.getRuntime().exec(ComandocriaCerti);
-                		    
-                		    if (senhaKeystore != null && !senhaKeystore.isEmpty()) {
-                		        OutputStreamWriter escritor = new OutputStreamWriter(processoCriaCertificado.getOutputStream());
-                		        escritor.write(senhaKeystore + "\n"); // Fornece a senha do keystore
-                		        escritor.flush();
-                		        escritor.close();
-                		    }
-                		    
-                		    int codigoRetorno = processoCriaCertificado.waitFor();
-                		    
-                		    if (codigoRetorno == 0) {
-                		        System.out.println("Certificado criado com sucesso.");
-                		    } else {
-                		        System.out.println("Erro ao criar certificado.");
-                		    }
-                		} else {
-                		    System.out.println("Erro ao criar keystore.");
-                		}
-		                   
-	                    String nameCertificado = userUsername+".cer";
-	                    sendCertToServer(nameCertificado, outStream);
-	                    File certFile = new File(nameCertificado);
-	                    if(certFile.exists()){
-	                    	certFile.delete();
-	                    }
-	                    System.out.println("Username cadastrado com sucesso");
-	                    
-                	}else {                		
-                		System.out.println("Username ja cadastrado");
-                	}
+                    Process processoCriaCertificado = Runtime.getRuntime().exec(ComandocriaCerti);
+                    
+                    if (senhaKeystore != null && !senhaKeystore.isEmpty()) {
+                        OutputStreamWriter escritor = new OutputStreamWriter(processoCriaCertificado.getOutputStream());
+                        escritor.write(senhaKeystore + "\n"); // Fornece a senha do keystore
+                        escritor.flush();
+                        escritor.close();
+                    }
+                    
+                    int codigoRetorno = processoCriaCertificado.waitFor();
+                    
+                    if (codigoRetorno == 0) {
+                        System.out.println("Certificado criado com sucesso.");
+                    } else {
+                        System.out.println("Erro ao criar certificado.");
+                    }
+                } else {
+                    System.out.println("Erro ao criar keystore.");
+                }
+                   
+                    String nameCertificado = userUsername+".cer";
+                    sendCertToServer(nameCertificado, outStream);
+                    File certFile = new File(nameCertificado);
+                    if(certFile.exists()){
+                    certFile.delete();
+                    }
+                    System.out.println("Username cadastrado com sucesso");
+                    
+                }else {                
+                System.out.println("Username ja cadastrado");
+                }
                         
-	                
-	                } catch (IOException | InterruptedException e) {
-	                    e.printStackTrace();
-	                }
+                
+                } catch (IOException | InterruptedException e) {
+                    e.printStackTrace();
+                }
                 
 
                                
@@ -316,20 +337,39 @@ public class mySNS {
                 
                 String recebe = (String) inStream.readObject();
                 
+                
               //cenas a dos quero cer---------------------------------------------------------
                 String keystorePath = "keystore."+ doctorUsername;
+               
+            	Scanner scanner = new Scanner(System.in);
                 
+                System.out.println("Por favor, digite a pass do medico:");
+                String passDr = scanner.nextLine();
+                
+                scanner.close();
                 try {
+                	
                     // Carregar a keystore
                     KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
-                    keystore.load(new FileInputStream(keystorePath), password.toCharArray());
-
+                    keystore.load(new FileInputStream(keystorePath), passDr.toCharArray());
+                    
                     // Verificar se o alias está presente na keystore
                     if (!keystore.containsAlias(userr)) {
                         System.out.println("O certificado com o alias '" + userr + "' não está presente na keystore.");
                         
+                        
                         outStream.writeObject("cert!exist");
+                        outStream.writeObject(doctorUsername);
+
+                        outStream.writeObject(passDr);
+                        
+                        String wh = (String) inStream.readObject();
+                        if(wh.equals("abort")) {
+                        	System.out.println("Password do médico errada");
+                        	System.exit(0);
+                        }
                         outStream.writeObject(userr+".cer");
+                        
                         
                         String filename = (String) inStream.readObject();
 	                	long fileSize = (long) inStream.readObject();
@@ -348,14 +388,26 @@ public class mySNS {
 	                        fos.close();	                        	                        
 	                	}
 	                	
-	                	//Importar certificado
 	                	
-	                	String passDr = null;
+	                	System.out.println(doctorUsername);
+	                	System.out.println(passDr);
+	                	String importCert = "keytool -importcert -file " + userr +".cer -alias "+ userr + " -keystore keystore."+ doctorUsername +" -storepass " + passDr;
+	                	Process processoImportCert = Runtime.getRuntime().exec(importCert);
+                		if (passDr != null && !passDr.isEmpty()) {
+                		    OutputStreamWriter escritor= new OutputStreamWriter(processoImportCert.getOutputStream());
+                		    
+                		    escritor.write("yes\n");
+                		    escritor.flush();
+                		    escritor.close();                		    
+                		}
 
-	                	
-	                	
-	                	String imporCert = "keytool -importcert -file " + userr +".cer -alias "+ userr + " -keystore keystore."+ doctorUsername +" -storepass" + passDr;
-	                	
+                		int codigoRetornoImportCert = processoImportCert.waitFor();
+                		
+                		if (codigoRetornoImportCert == 0) {
+                		    System.out.println("cert importado com sucesso.");
+                		}else {
+                			System.out.println("sou horrivel");
+                		}
 	                	
 	                	
 	                	
@@ -376,15 +428,15 @@ public class mySNS {
                     System.arraycopy(args, 9, filenames, 0, filenames.length);
                     switch (command) {
                         case "-sc":
-                            metodosc(outStream, inStream, hostname, port, filenames, doctorUsername, userr);
+                            metodosc(outStream, inStream, hostname, port, filenames, doctorUsername, userr, password);
                             deleteFiles(filenames, userr, doctorUsername);
                             break;
                         case "-sa":
-                            metodosa(outStream, inStream, hostname, port, filenames, doctorUsername, userr);
+                            metodosa(outStream, inStream, hostname, port, filenames, doctorUsername, userr, passDr);
                             deleteFiles(filenames, userr, doctorUsername);
                             break;
                         case "-se":
-                            metodose(outStream, inStream, hostname, port, filenames, doctorUsername, userr);
+                            metodose(outStream, inStream, hostname, port, filenames, doctorUsername, userr, passDr, password);
                             deleteFiles(filenames, userr, doctorUsername);
                             break;
                         default:
@@ -457,8 +509,9 @@ public class mySNS {
      * @param filenames      Nomes dos arquivos a serem cifrados.
      * @param doctorUsername Nome de usuário do médico.
      * @param userUsername   Nome de usuário do usuário.
+     * @param password 
      */
-    private static void metodosc(ObjectOutputStream outStream, ObjectInputStream inStream, String hostname, int port, String[] filenames, String doctorUsername, String userUsername) {
+    private static void metodosc(ObjectOutputStream outStream, ObjectInputStream inStream, String hostname, int port, String[] filenames, String doctorUsername, String userUsername, String password) {
         List<String> encryptedFiles = new ArrayList<>();
         try {
         	
@@ -474,7 +527,7 @@ public class mySNS {
                 SecretKey aesKey = kg.generateKey();
 
                 encryptFileWithAES(filename, aesKey);
-                encryptAESKeyWithRSA(aesKey, userUsername, filename);
+                encryptAESKeyWithRSA(aesKey, userUsername, filename, password);
             
                 encryptedFiles.add(filename);
             }
@@ -487,6 +540,7 @@ public class mySNS {
             System.err.println("Erro ao gerar chave AES: " + e.getMessage());
         } catch (Exception e) {
             System.err.println("Erro: " + e.getMessage());
+            
         }
     }
 
@@ -501,8 +555,9 @@ public class mySNS {
      * @param filenames      Nomes dos arquivos a serem Assinados.
      * @param doctorUsername Nome de usuário do médico.
      * @param userUsername   Nome de usuário do usuário.
+     * @param passDr 
      */
-    private static void metodosa(ObjectOutputStream outStream, ObjectInputStream inStream, String hostname, int port, String[] filenames, String doctorUsername, String userUsername) {
+    private static void metodosa(ObjectOutputStream outStream, ObjectInputStream inStream, String hostname, int port, String[] filenames, String doctorUsername, String userUsername, String passDr) {
     	List<String> signedFiles = new ArrayList<>();
     	try {
 			for (String filename : filenames) { 
@@ -513,7 +568,7 @@ public class mySNS {
 			        continue; 
 			    }
 
-			    signFile(filename, doctorUsername);
+			    signFile(filename, doctorUsername, passDr);
 			    signedFiles.add(filename);
 	
 			    System.out.println("O arquivo " + filename + " foi assinado ");
@@ -525,6 +580,7 @@ public class mySNS {
 			socket.close();
     	} catch (Exception e) {
             System.err.println("Erro: " + e.getMessage());
+            System.out.println("estou aqui o erro");
         }
     	
     }
@@ -540,8 +596,12 @@ public class mySNS {
      * @param filenames      Nomes dos arquivos a serem Cifrados e Assinados.
      * @param doctorUsername Nome de usuário do médico.
      * @param userUsername   Nome de usuário do usuário.
+     * @param password 
+     * @param passDr 
+     * @throws SignatureException 
+     * @throws UnrecoverableKeyException 
      */
-    private static void metodose(ObjectOutputStream outStream, ObjectInputStream inStream, String hostname, int port, String[] filenames, String doctorUsername, String userUsername) {
+    private static void metodose(ObjectOutputStream outStream, ObjectInputStream inStream, String hostname, int port, String[] filenames, String doctorUsername, String userUsername, String passDr, String password) throws UnrecoverableKeyException, SignatureException {
 
         List<String> seFiles = new ArrayList<>();
 
@@ -560,7 +620,7 @@ public class mySNS {
                 continue; 
             }*/
 
-            envelopesSeguros(userUsername, filename, doctorUsername);
+            envelopesSeguros(userUsername, filename, doctorUsername, passDr, password);
 
 
             seFiles.add(filename);
@@ -650,8 +710,12 @@ public class mySNS {
       * @param userUsername    O nome de usuário do destinatário.
       * @param filename        O nome do arquivo a ser envolvido.
       * @param doctorUsername  O nome de usuário do médico responsável pela assinatura.
+     * @param password 
+     * @param passDr 
+     * @throws SignatureException 
+     * @throws UnrecoverableKeyException 
       */
-     private static void envelopesSeguros(String userUsername, String filename, String doctorUsername) {
+     private static void envelopesSeguros(String userUsername, String filename, String doctorUsername, String passDr, String password) throws UnrecoverableKeyException, SignatureException {
     	 KeyGenerator kg;
 	     try {
 	    	 
@@ -659,10 +723,10 @@ public class mySNS {
 	         kg.init(128);
 	         SecretKey aesKey = kg.generateKey();
 	         try {
-	        	 signFile(filename, doctorUsername);
+	        	 signFile(filename, doctorUsername, passDr);
 	             encryptFileWithAES(filename+".assinado", aesKey);
 	             try {
-				encryptAESKeyWithRSA(aesKey, userUsername, filename);
+				encryptAESKeyWithRSA(aesKey, userUsername, filename, password);
 			} catch (NoSuchPaddingException e) {
 				e.printStackTrace();
 			} catch (IllegalBlockSizeException e) {
@@ -672,7 +736,7 @@ public class mySNS {
 	             e.printStackTrace();}
 	         
 		
-	     } catch (NoSuchAlgorithmException | UnrecoverableKeyException | InvalidKeyException | KeyStoreException | CertificateException | SignatureException e) {
+	     } catch (NoSuchAlgorithmException | InvalidKeyException | KeyStoreException | CertificateException e) {
 	          e.printStackTrace();}}
 
     
@@ -683,7 +747,7 @@ public class mySNS {
       * @param file           Nome do arquivo a ser assinado.
       * @param doctorUsername Nome de usuário do médico.
       */
-    private static void signFile(String file, String doctorUsername) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, UnrecoverableKeyException, SignatureException, InvalidKeyException {
+    private static void signFile(String file, String doctorUsername, String passDr) throws KeyStoreException, NoSuchAlgorithmException, CertificateException, IOException, UnrecoverableKeyException, SignatureException, InvalidKeyException {
 
     	FileInputStream fis = new FileInputStream(file);
     	FileOutputStream fos = new FileOutputStream(file+".assinado");
@@ -691,8 +755,8 @@ public class mySNS {
     	FileInputStream kfile1 = new FileInputStream("keystore." + doctorUsername); //ler a keystore
     	
     	KeyStore kstore = KeyStore.getInstance("PKCS12");
-    	kstore.load(kfile1, "123456".toCharArray());
-    	Key myPrivateKey = kstore.getKey(doctorUsername, "123456".toCharArray());
+    	kstore.load(kfile1, passDr.toCharArray());
+    	Key myPrivateKey = kstore.getKey(doctorUsername, passDr.toCharArray());
 
     	PrivateKey pk = (PrivateKey) myPrivateKey;
     	
@@ -725,12 +789,13 @@ public class mySNS {
      * @param aesKey       A chave AES a ser cifrada.
      * @param userUsername Nome de usuário do usuário.
      * @param filename     Nome do arquivo onde a chave cifrada será salva.
+     * @param password 
      */
-    private static void encryptAESKeyWithRSA(SecretKey aesKey, String userUsername, String filename) throws FileNotFoundException, IOException, KeyStoreException, NoSuchAlgorithmException, CertificateException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException {
+    private static void encryptAESKeyWithRSA(SecretKey aesKey, String userUsername, String filename, String password) throws FileNotFoundException, IOException, KeyStoreException, NoSuchAlgorithmException, CertificateException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException {
         try (FileOutputStream kos = new FileOutputStream(filename + ".chave_secreta." + userUsername)) {
             FileInputStream kfile = new FileInputStream("keystore." + userUsername);
             KeyStore kstore = KeyStore.getInstance("PKCS12");
-            kstore.load(kfile, "123456".toCharArray()); 
+            kstore.load(kfile, password.toCharArray()); 
             Certificate cert = kstore.getCertificate(userUsername);
             
             Cipher c1 = Cipher.getInstance("RSA");
