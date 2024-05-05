@@ -15,6 +15,7 @@ import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -274,14 +275,54 @@ public class mySNSServer {
             			
             			if (verificaUser(user) && verificaPass(user, pass)) { 
             				outStream.writeObject("user cadastrado, passe correta");
-            				System.out.println("whatttttttttttttttttttttttttttt");
                         	boolean a = verificaMAC(passwordFile.getAbsolutePath(), passAdmin);
-                        	if(a) {                                                      		
+                        	if(a) {     
+	                    		
+	                    		//cert cenas--------------------------------------------
+                        		String certB = (String) inStream.readObject();
+                        		
+	                			if(certB.equals("cert!exist")){
+	                				
+	                        		String certName = (String) inStream.readObject();
+	                                System.out.println("Received filename: " + certName);
+		                                	                                 
+		                            File certDirectory = new File("/home/aluno-di/eclipse-workspace/SEG-2/src/server/certificados");
+		                            File[] filesInDirectory = certDirectory.listFiles();
+		                            File ficheiro;
+		                            
+		                            if (filesInDirectory != null) {
+		                                for (File file : filesInDirectory) {
+		                                    if (file.exists() && file.isFile() && file.getName().startsWith(certName)) {
+		                                        ficheiro = file;
+		                                        
+		                                        outStream.writeObject(ficheiro.getName());
+		                                        outStream.writeObject(ficheiro.length());
+		                                        
+		                             			try (BufferedInputStream cifradoFileB = new BufferedInputStream(new FileInputStream(ficheiro))) {
+		                                             byte[] buffer = new byte[1024];
+		                                             int bytesRead;
+		                                             while ((bytesRead = cifradoFileB.read(buffer, 0, 1024)) > 0) {
+		                                            	 outStream.write(buffer, 0, bytesRead);
+		                                             }
+	                                                 System.out.println("ficheiro "+ficheiro.getName()+" enviado");
+		                                        	 outStream.flush();
+		                             			}
+		                             			
+		                             			//Importar certificado
+		                             			
+		                                    }
+	                             		}	                                         	                                         
+	                             	}		                             
+	                             }else {
+	                            	 System.out.println("Certificado já está na keystore do medico");
+	                             }
+	                				//----------------------------------------------
+
+                        		
 				                allFilesReceived = true; 
 				                try {		       				                
 				                	
 				                	while (true) {
-				                		System.out.println("whatttttttttttttttttttttttttttt");
 				                		long fileSize = (long) inStream.readObject();
 				                		System.out.println(fileSize);				                		
 				                		  if (fileSize == -1) {
@@ -293,24 +334,30 @@ public class mySNSServer {
 				                		
 				                	  
 				                		var userDirectoryy = new File("/home/aluno-di/eclipse-workspace/SEG-2/src/server", user);
-				                	    var outputFile = new File(userDirectoryy, filename);
-				                	    try (var outFileStream = new FileOutputStream(outputFile);
-				                	         var outFile = new BufferedOutputStream(outFileStream)) {
-				                	        byte[] buffer = new byte[1024];
-				                	        int bytesRead;
-				                	        long remainingBytes = fileSize;
-				                	        while (remainingBytes > 0 && (bytesRead = inStream.read(buffer, 0, (int) Math.min(buffer.length, remainingBytes))) != -1) {
-				                	            outFile.write(buffer, 0, bytesRead);
-				                	            remainingBytes -= bytesRead;
-				                	        }
-				                	       
-
-				                	    } catch (IOException e) {
-				                	        e.printStackTrace();
-				                	        allFilesReceived = false;
-				                	    }
-				
-				                	    System.out.println("Fim do ficheiro: " + filename);
+				                		if (!userDirectoryy.exists()) {
+				                            System.out.println("O diretorio de utilizador nao existe\nServidor fechado.");
+				                            return;
+				                        }else {
+				                		
+					                		var outputFile = new File(userDirectoryy, filename);
+					                	    try (var outFileStream = new FileOutputStream(outputFile);
+					                	         var outFile = new BufferedOutputStream(outFileStream)) {
+					                	        byte[] buffer = new byte[1024];
+					                	        int bytesRead;
+					                	        long remainingBytes = fileSize;
+					                	        while (remainingBytes > 0 && (bytesRead = inStream.read(buffer, 0, (int) Math.min(buffer.length, remainingBytes))) != -1) {
+					                	            outFile.write(buffer, 0, bytesRead);
+					                	            remainingBytes -= bytesRead;
+					                	        }
+					                	       
+	
+					                	    } catch (IOException e) {
+					                	        e.printStackTrace();
+					                	        allFilesReceived = false;
+					                	    }
+					
+					                	    System.out.println("Fim do ficheiro: " + filename);
+				                        }
 				                	}
 			
 			
@@ -631,4 +678,19 @@ public class mySNSServer {
              return false;
          }
  	 }
+ 	 
+ 	public static String transPass(String username, String passwordToCheck) throws NoSuchAlgorithmException, InvalidKeySpecException {
+        
+ 		String[] passInfo = pegaPass(username);
+ 		 
+ 		String hashedPasswordString = passInfo[1];
+ 		 
+ 		// Obter a senha original
+ 		byte[] hashedPassword = Base64.getDecoder().decode(hashedPasswordString);
+ 		String originalPassword = new String(hashedPassword, StandardCharsets.UTF_8);
+ 		    
+ 		System.out.println("Senha encontrada!");
+ 		return originalPassword;
+
+	 }
 }

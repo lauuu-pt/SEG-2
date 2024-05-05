@@ -311,15 +311,66 @@ public class mySNS {
 	             
                 String command = args[8];
                 
-                outStream.writeObject(password);
-                
+                outStream.writeObject(password);                
                 outStream.writeObject("-s#");
                 
-
-            	String recebe = (String) inStream.readObject();
-            	System.out.println(recebe);
-            	
+                String recebe = (String) inStream.readObject();
                 
+              //cenas a dos quero cer---------------------------------------------------------
+                String keystorePath = "keystore."+ doctorUsername;
+                
+                try {
+                    // Carregar a keystore
+                    KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
+                    keystore.load(new FileInputStream(keystorePath), password.toCharArray());
+
+                    // Verificar se o alias está presente na keystore
+                    if (!keystore.containsAlias(userr)) {
+                        System.out.println("O certificado com o alias '" + userr + "' não está presente na keystore.");
+                        
+                        outStream.writeObject("cert!exist");
+                        outStream.writeObject(userr+".cer");
+                        
+                        String filename = (String) inStream.readObject();
+	                	long fileSize = (long) inStream.readObject();
+	                	
+	                	try (FileOutputStream fos = new FileOutputStream(filename)){
+	                		byte[] buffer = new byte[1024];
+	                        int bytesRead;
+	                        long total=0;
+	                        while (total<fileSize && (bytesRead=inStream.read(buffer)) != -1) {
+	                       	 	fos.write(buffer,0,bytesRead);
+	                       	 	total+=bytesRead;
+	                        }
+	                        System.out.println("ficheiro "+filename+" recebido");
+	                        
+	                        outStream.flush(); 	                        
+	                        fos.close();	                        	                        
+	                	}
+	                	
+	                	//Importar certificado
+	                	
+	                	String passDr = null;
+
+	                	
+	                	
+	                	String imporCert = "keytool -importcert -file " + userr +".cer -alias "+ userr + " -keystore keystore."+ doctorUsername +" -storepass" + passDr;
+	                	
+	                	
+	                	
+	                	
+                    }else {
+                    	outStream.writeObject("certexist");
+                    	System.out.println("O certificado com o alias "+ " já está presente na keystore");
+                    }
+                } catch (Exception e) {
+                    System.err.println("Erro ao verificar o certificado na keystore: " + e.getMessage());
+                    e.printStackTrace();
+                }
+                
+                //---------------------------------------------------------------------------------------------
+            	
+            	System.out.println(recebe);
             	if(recebe.equals("user cadastrado, passe correta")) {
             		String[] filenames = new String[args.length - 9];
                     System.arraycopy(args, 9, filenames, 0, filenames.length);
@@ -453,7 +504,6 @@ public class mySNS {
      */
     private static void metodosa(ObjectOutputStream outStream, ObjectInputStream inStream, String hostname, int port, String[] filenames, String doctorUsername, String userUsername) {
     	List<String> signedFiles = new ArrayList<>();
-    	 System.out.println("chegueiiiiiii");
     	try {
 			for (String filename : filenames) { 
 				System.out.println(filename);
@@ -462,10 +512,8 @@ public class mySNS {
 			        System.out.println("O arquivo " + filename + " não existe localmente. Ignorando...");
 			        continue; 
 			    }
-			    
+
 			    signFile(filename, doctorUsername);
-			    
-			    System.out.println("chegueiiiiiii");
 			    signedFiles.add(filename);
 	
 			    System.out.println("O arquivo " + filename + " foi assinado ");
@@ -477,7 +525,6 @@ public class mySNS {
 			socket.close();
     	} catch (Exception e) {
             System.err.println("Erro: " + e.getMessage());
-            System.out.println("wowowoowwowo");
         }
     	
     }
